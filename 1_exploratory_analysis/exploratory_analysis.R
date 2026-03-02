@@ -1,70 +1,29 @@
-# load processed data
-data = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil.rds")
-data2 = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_data.rds")
-new = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil2.rds")
-new2 = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_newData.rds") 
+# load data
+## raw for PCA
+pristine = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil.rds")
+colored = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil2.rds")
 
+## denoised for dissimilarity
+pristine2 = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_data.rds")
+colored2 = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_newData.rds")
 
 # convert spectra to absorbance
-data$spcA = log(1/data$spc)
-data2$spcA = log(1/data2$spc)
-new$spcA = log(1/new$spc)
-new2$spcA = log(1/new2$spc)
+pristine$spcA = log(1/pristine$spc)
+colored$spcA = log(1/colored$spc)
 
-
-# preprocess approaches
-## 5 nm resample
-oldWavs = as.numeric(colnames(data2$spcA))
-newWavs = seq(min(oldWavs), max(oldWavs), by = 5)
-
-data2$spcAR = prospectr::resample(data2$spcA,
-                                 wav = oldWavs,
-                                 new.wav = newWavs,
-                                 interpol = "linear")
-
-new2$spcAR = prospectr::resample(new2$spcA,
-                                wav = oldWavs,
-                                new.wav = newWavs,
-                                interpol = "linear")
-
-require(prospectr)
-## SNV for baseline correction
-data2$spcARsnv = standardNormalVariate(data2$spcAR)
-data2$spcAsnv = standardNormalVariate(data2$spcA)
-
-new2$spcARsnv = standardNormalVariate(new2$spcAR)
-new2$spcAsnv = standardNormalVariate(new2$spcA)
-
-## Moving Window Average to the SNV spectra
-data2$spcARmovav = movav(data2$spcARsnv, w = 11)
-data2$spcAmovav = movav(data2$spcAsnv, w = 11)
-
-new2$spcARmovav = movav(new2$spcARsnv, w = 11)
-new2$spcAmovav = movav(new2$spcAsnv, w = 11)
-
-# try and remove "noisy" edges...
-
-# edges = which(as.numeric(colnames(data$spcA)) < 500 | as.numeric(colnames(data$spcA)) > 2450)
-
-# data$DNspcA = data$spcA[, -edges]
-
-# ...no cigar.
-
+pristine2$spcA = log(1/pristine$spc)
+colored2$spcA = log(1/colored$spc)
 
 ################################################################################
 #                         PRINCIPAL COMPONENT ANALYSIS                         #
 ################################################################################
-# reduce dimensionality with PCA
-pcspec = prcomp(data$spcA) # raw data
-pcspec2 = prcomp(data2$spcA) # SGf data
-pcspec3 = prcomp(data2$spcAmovav) # SGf + SNV + movav
-pcspec4 = prcomp(data2$spcARmovav) # SGf + SNV + movav + resample
-
-
+pcspec = prcomp(pristine$spcA)
 summary(pcspec)[[6]][, 1:10] # good amount of variance explained by it...
-summary(pcspec2)[[6]][, 1:10]
-summary(pcspec3)[[6]][, 1:10]
-summary(pcspec4)[[6]][, 1:10]
+
+require(factoextra)
+# eigenvalues vs. number of dimensions (screeplot)
+fviz_eig(pcspec, addlabels = T, geom = "bar",
+         ncp = 3, main = "", ggtheme = theme_gray())
 
 # scores
 plot(pcspec$x[, 1],
@@ -75,7 +34,7 @@ plot(pcspec$x[, 1],
      col = rgb(0.5, 0.5, 0.5, alpha = 0.5))
 
 # first loading
-plot(colnames(data$spcA), pcspec$rotation[,1],
+plot(colnames(pristine$spcA), pcspec$rotation[,1],
      type ="l",
      ylab ="Loading",
      xlab ="Wavelength (nm)",
@@ -83,7 +42,7 @@ plot(colnames(data$spcA), pcspec$rotation[,1],
      ylim = c(-0.06, 0.06))
 
 # second loading
-lines(colnames(data$spcA), pcspec$rotation[,2],
+lines(colnames(pristine$spcA), pcspec$rotation[,2],
       type ="l",
       ylab ="Loading",
       xlab ="Wavelength (nm)",
@@ -96,7 +55,7 @@ legend("topright",
 abline(h=0)
 
 # last principal component loading
-plot(colnames(data$spcA), pcspec$rotation[,ncol(pcspec$rotation)],
+plot(colnames(pristine$spcA), pcspec$rotation[,ncol(pcspec$rotation)],
      main = "Last PC loading (mostly noise)",
      type = "l",
      ylab = "Loading",
@@ -104,36 +63,21 @@ plot(colnames(data$spcA), pcspec$rotation[,ncol(pcspec$rotation)],
      col = rgb(red = 0.5, green = 0.5, blue = 0.5, alpha = 0.5),
      ylim = c(-0.1, 0.1))
 
-# OVERPLOTTED! 
-# # biplot of the first two principal components scores and loadings
-# biplot(pcspec,
-#        col = c(rgb(red = 0.5, green = 0.5, blue = 0.5, alpha = 1),
-#                rgb(red = 1, green = 0, blue = 0, alpha = 0.5)),
-#        xlab = "PC 1",
-#        ylab = "PC 2")
-# abline(v=0, h=0)
-# 
 
-# spectral prediction domain
+#==============================================================================#
+#                      CHECK SPECTRAL PREDICTION DOMAIN                        #
+#==============================================================================#
 require(tripack)
 
 # PCA scores triangulation
 randTr = tri.mesh(pcspec$x[, 1], pcspec$x[, 2])
-randTr2 = tri.mesh(pcspec2$x[, 1], pcspec2$x[, 2])
-randTr3 = tri.mesh(pcspec3$x[, 1], pcspec3$x[, 2])
-randTr4 = tri.mesh(pcspec4$x[, 1], pcspec4$x[, 2])
 
 # nodes of the convex hull
 randCH = convex.hull(randTr, plot.it = F)
-randCH2 = convex.hull(randTr2, plot.it = F)
-randCH3 = convex.hull(randTr3, plot.it = F)
-randCH4 = convex.hull(randTr4, plot.it = F)
 
 plot(pcspec$x[,1], pcspec$x[,2],
      xlab ="PC1",
      ylab ="PC2",
-     # xlim = c(min(pcspec$x[,1:2]), max(pcspec$x[,1:2])),
-     # ylim = c(min(pcspec3$x[,1:2]), max(pcspec3$x[,1:2])), # watch out for useless plot spaces
      ylim = c(-20, 20),
      pch = 16,
      col = rgb(red = 0.5, green = 0.5, blue = 0.5, alpha = 0.5))
@@ -141,11 +85,11 @@ plot(pcspec$x[,1], pcspec$x[,2],
 lines(c(randCH$x, randCH$x[1]), c(randCH$y,randCH$y[1]),
       col="darkred",
       lwd=2)
-#==============================================================================#
-#           CHECKING IF NEW DATA ARE INSIDE THE PREDICTIVE SPACE               #
-#==============================================================================#
-new$spcA = as.matrix(new$spcA)
-new_scores = sweep(new$spcA, 2, pcspec$center, "-") %*% pcspec$rotation
+
+
+# how much of colored data are inside the predictive space?
+colored$spcA = as.matrix(colored$spcA)
+new_scores = sweep(colored$spcA, 2, pcspec$center, "-") %*% pcspec$rotation
 
 points(new_scores[,1], new_scores[,2],
      pch = 16,
@@ -181,13 +125,14 @@ points(pts[!inside, 1], pts[!inside, 2],
        lwd = 2)
 
 require(dplyr)
-new |> 
+colored |> 
   filter(!inside) |> 
   select(SAMPLE_ID, SAMPLE_CODE, SIZE_INTERVALS_mm,
          MASS_mg, REPLICATE)
 
-paste0(round((sum(inside == FALSE) * 100) / nrow(new), 2), "% ",
+paste0(round((sum(inside == FALSE) * 100) / nrow(colored), 2), "% ",
     "OF THE NEW SAMPLES ARE OUTSIDE THE PREDICTIVE DOMAIN")
+
 
 ## ggplot version =============================================================#
 hull_x = c(randCH$x, randCH$x[1])
@@ -197,7 +142,7 @@ legend_levels = c("Pristine polymer samples",
                    "Colored polymer samples",
                    "Samples outside prediction domain",
                    "Convex hull delimitation")
-
+require(ggplot2)
 ggplot() +
   geom_point(aes(x = pcspec$x[,1], y = pcspec$x[,2],
                  color = factor("Pristine polymer samples", levels = legend_levels)),
@@ -220,7 +165,6 @@ ggplot() +
                                 "Colored polymer samples" = adjustcolor("darkblue"),
                                 "Samples outside prediction domain" = adjustcolor("red", 0.6),
                                 "Convex hull delimitation" = "darkred")) +
-  
   labs(x = "PC1", y = "PC2") +
   theme(legend.position = "top",
         axis.title.y = element_text(size = 15),
@@ -230,31 +174,30 @@ ggplot() +
         legend.title = element_text(size = 15),
         legend.text = element_text(size = 15),
         legend.key.size = unit(1, 'cm'))
-#==============================================================================#
 
-require(ggplot2)
+
+## check data structure =======================================================#
+
+# extract scores and loadings
 scores_df = as.data.frame(pcspec$x)
-
-# loadings
 loadings_df = as.data.frame(pcspec$rotation)
 
 scores_df$Obs = rownames(scores_df)
 loadings_df$Var = rownames(loadings_df)
 
-# sum_abs_loadings_pc1 = abs(pcspec$rotation)
-# important_bands = which(sum_abs_loadings_pc1 > quantile(sum_abs_loadings_pc1, 0.9))
-# print(colnames(data$spcA)[important_bands])
-
 # select variables (some of the wavelengths)
-select_var = c(min(as.numeric(colnames(data$spcA))),
-               median(as.numeric(colnames(data$spcA))),
-               max(as.numeric(colnames(data$spcA))))
+select_var = c(min(as.numeric(colnames(pristine$spcA))),
+               median(as.numeric(colnames(pristine$spcA))),
+               max(as.numeric(colnames(pristine$spcA))))
 
 # filter loadings
 # filt_loading = loadings_df[loadings_df$Var %in% select_var, ]
 
+# select representative wavelengths for Vis-NIR-SWIR ranges
 filt_loading = loadings_df[loadings_df$Var %in% c("350", "700", "1100", "2500"), ]
 
+
+# biplot
 p = ggplot() +
   geom_point(data = scores_df,
              aes(x = PC1, y = PC2,
@@ -286,21 +229,14 @@ p = ggplot() +
         legend.text = element_text(size = 15),
         legend.key.size = unit(1, 'cm'))
 
-#==============================================================================#
-require(factoextra)
-# eigenvalues vs. number of dimensions
-fviz_eig(pcspec, addlabels = T, geom = "bar",
-         ncp = 3, main = "", ggtheme = theme_gray())
-
-
 # spectra distribution (grouped by mass)
 require(RColorBrewer)
 p3 = fviz_pca_ind(pcspec, geom = "point",
              title = "",
              pointshape = 16,
-             pointsize = 2,
+             pointsize = 2, # smaller is better for panel visualization...
              alpha.ind = 0.6,
-             col.ind = as.factor(data$MASS_mg),
+             col.ind = as.factor(pristine$MASS_mg),
              # addEllipses = T,
              # ellipse.level = 0.5,
              ggtheme = theme_gray(),
@@ -332,7 +268,7 @@ p2 = fviz_pca_ind(pcspec, geom = "point",
              pointsize = 2,
              alpha.ind = 0.8,
              addEllipses = F,
-             col.ind = data$SIZE_INTERVALS_mm,
+             col.ind = pristine$SIZE_INTERVALS_mm,
              ggtheme = theme_gray(),
              axes.linetype = "blank") +
   scale_fill_brewer(palette = "Spectral") +
@@ -358,7 +294,7 @@ p1 = fviz_pca_ind(pcspec, geom = "point",
              pointshape = 16,
              pointsize = 2,
              alpha.ind = 0.6,
-             col.ind = data$POLYMER,
+             col.ind = pristine$POLYMER,
              addEllipses = F,
              # ellipse.level = 0.25,
              ggtheme = theme_gray(),
@@ -379,12 +315,14 @@ p1 = fviz_pca_ind(pcspec, geom = "point",
         legend.text = element_text(size = 15),
         legend.key.size = unit(1, 'cm'))
 
+
+# confidence ellipses (grouped by mass)
 p4 = fviz_pca_ind(pcspec, geom = "point",
                   title = "",
                   pointshape = 16,
                   pointsize = 4,
                   alpha.ind = 0.6,
-                  col.ind = as.factor(data$MASS_mg),
+                  col.ind = as.factor(pristine$MASS_mg),
                   addEllipses = T,
                   # ellipse.level = 0.5,
                   ggtheme = theme_gray(),
@@ -407,27 +345,39 @@ p4 = fviz_pca_ind(pcspec, geom = "point",
         legend.key.size = unit(1, 'cm'))
 
 
-fviz_pca_biplot(pcspec,
-                geom.ind = "point",
-                pointshape = 21,
-                pointsize = 2.5,
-                fill.ind = as.factor(data$MASS_mg),
-                col.var = "darkred",
-                select.var = list(name = select_var),
-                arrowsize = 1) +
-  labs(fill = "Plastic mass (mg)") +
-  guides(color = "none")
-
+# compose panel
+require(patchwork)
 p/(p1+p2+p3)/p4 +
   plot_annotation(tag_levels = 'a',
                   tag_prefix = '(', tag_suffix = ')') &
-  theme(plot.tag = element_text(face = 'bold', size = 30))
+  theme(plot.tag = element_text(face = 'bold', size = 20))
+
+
+# BEYOND VISUAL INSPECTION...
+## check MASS_mg correlation with PC1 and PC2
+cor.test(pcspec$x[ ,1], pristine$MASS_mg)
+cor.test(pcspec$x[ ,2], pristine$MASS_mg)
+
+## AOV for POLYMER with PC1 and PC2
+summary(aov(pcspec$x[ ,1] ~ pristine$POLYMER))
+summary(aov(pcspec$x[ ,2] ~ pristine$POLYMER))
+
+## size effect in PC1
+eta_squared(aov(pcspec$x[ ,1] ~ pristine$MASS_mg))
+eta_squared(aov(pcspec$x[ ,1] ~ pristine$POLYMER))
+
+## size effect in PC2
+require(effectsize)
+eta_squared(aov(pcspec$x[ ,2] ~ pristine$MASS_mg))
+eta_squared(aov(pcspec$x[ ,2] ~ pristine$POLYMER))
+
 
 ################################################################################
-#                           SPECTRA SIMILARITY ANALYSIS                        #
+#                        SPECTRA DISSIMILARITY ANALYSIS                        #
 ################################################################################
-require(dplyr)
-groups = data2 |> # deNoised_data.rds
+
+# calculate mean absorbance spectra for pristine...
+groups = pristine2 |>
   group_by(POLYMER, SIZE_CODE, SIZE_INTERVALS_mm, MASS_mg) |>
   summarise(mean_spectrum = list(colMeans(spcA)), .groups = "drop")
 
@@ -484,111 +434,100 @@ appr_dict = c(
   "samD" = "Spectral Angler Mapper")
 
 
-# results = list()
-# results2 = list()
-results3 = list()
+library(purrr)
+library(tidyr)
+#==============================================================================#
+#         CONFIG - change these to switch what is controlling vs. varying      #
+#==============================================================================#
+CONTROL_VARS = c("MASS_mg", "SIZE_CODE") # CONTEXT_i = c("MASS_mg", "SIZE_CODE")
+                                         # CONTEXT_ii = c("POLYMER", "SIZE_CODE")
+                                         # CONTEXT_iii = c("MASS_mg", "POLYMER")
+VARY_LABEL   = function(row) paste0(row$POLYMER, "_", row$SIZE_CODE, row$MASS_mg)
 
-# for (mass in sort(unique(groups$MASS_mg), decreasing = T)) {
-for (polymer in unique(groups$POLYMER)) {# NEED TO BE AWARE OF WHAT I WANT TO CONTROL
-  # for (size in unique(groups$SIZE_CODE)) {
-  for (mass in sort(unique(groups$MASS_mg), decreasing = T)) {# SUBSETTING SOME VARS FIX IT TO SEE VARIATON IN OTHER ONES
+
+# run all approach comparisons for one subset of groups...
+compare_subset = function(subset_idx, groups, appr, appr_dict) {
+  idx_combos = t(combn(subset_idx, 2))
+  
+  map(set_names(appr), function(name) {
+    metric_matrix = get(name)
     
-    # subset_idx = which(groups$MASS_mg == mass & groups$SIZE_CODE == size)
-    # subset_idx = which(groups$POLYMER == polymer & groups$SIZE_CODE == size)
-    subset_idx = which(groups$POLYMER == polymer & groups$MASS_mg == mass)
-    if (length(subset_idx) < 2) next  # skip if less than two groups
-    
-    interval = unique(groups$SIZE_INTERVALS_mm[subset_idx])
-    
-    # cat("\n\n###### RESULTS FOR MASS:", mass, "mg | SIZE:", size,
-    # cat("\n\n###### RESULTS FOR:", polymer,"| SIZE:", size,
-    cat("\n\n###### RESULTS FOR:", polymer,"| MASS:", mass, "mg ######")
-        # paste0("(", interval, " mm) ######"))
-    
-    # generate pairwise combinations
-    idx_combos_subset = t(combn(subset_idx, 2))
-    subset_results = list()
-    
-    for (name in appr) {
-      cat("\n---------------", appr_dict[[name]], "---------------\n")
-      approach_results = list()
-      metric_matrix = get(name)
-      
-      for (k in seq_len(nrow(idx_combos_subset))) {
-        i = idx_combos_subset[k, 1]
-        j = idx_combos_subset[k, 2]
-        
-        label_i = paste0(groups$POLYMER[i], "_", groups$SIZE_CODE[i], groups$MASS_mg[i])
-        label_j = paste0(groups$POLYMER[j], "_", groups$SIZE_CODE[j], groups$MASS_mg[j])
-        comparison = paste(label_i, "VS", label_j)
-        
-        approach_results[[comparison]] = round(metric_matrix[i, j], 5)
-      }
-      
-      subset_results[[appr_dict[name]]] = approach_results
-      for (comp_name in names(approach_results)) {
-        cat(comp_name, ":", approach_results[[comp_name]], "\n")
-      }
-    }
-    # results[[paste0("Mass_", mass, "_Size_", size)]] = subset_results
-    # results2[[paste0("Polymer_", polymer, "_Size_", size)]] = subset_results
-    results3[[paste0("Polymer_", polymer, "_Mass_", mass)]] = subset_results
-  }# WATCH OUT FOR RESULT STORAGE AS WELL
+    apply(idx_combos, 1, function(pair) {
+      i = pair[1]; j = pair[2]
+      label_i = VARY_LABEL(groups[i, ])
+      label_j = VARY_LABEL(groups[j, ])
+      round(metric_matrix[i, j], 5)
+    }) |>
+      set_names(apply(idx_combos, 1, function(pair) {
+        paste(VARY_LABEL(groups[pair[1], ]), "vs", VARY_LABEL(groups[pair[2], ]))
+      }))
+  }) |>
+    set_names(unlist(appr_dict[appr]))
 }
 
-#==============================================================================#
-# tidy up...
 
-library(purrr)
-library(dplyr)
-library(tidyr)
+# iterate over unique control-var combinations...
+control_combos = groups |>
+  select(all_of(CONTROL_VARS)) |>
+  distinct() |>
+  mutate(across(everything(), as.character))
 
-# tidy_results = results |>
-# tidy_results2 = results2 |>
-tidy_results3 = results3 |>
-  imap_dfr(function(context_data, context_name) {
-    # For each metric in this context
-    imap_dfr(context_data, function(matrix_data, metric_name) {
-      # Convert matrix to data frame and add row names as a column
-      df = as.data.frame(matrix_data)
-      df$Row = rownames(df)  # Ensure row names are preserved
-      
-      df |> 
-        pivot_longer(
-          cols = -Row, 
-          names_to = "Column", 
-          values_to = "Value"
-        ) |> 
-        filter(Row < Column) |>   
-        mutate(
-          Context = context_name,
-          Metric = metric_name
-        ) |> 
-        select(Context, Metric, Row, Column, Value)
-    })
+results = pmap(control_combos, function(...) {
+  vals = list(...)
+  filters = map2(CONTROL_VARS, vals, ~ groups[[.x]] == .y)
+  subset_idx = which(Reduce(`&`, filters))
+  
+  if (length(subset_idx) < 2) return(NULL)
+  
+  interval = unique(groups$SIZE_INTERVALS_mm[subset_idx])
+  context_label = paste(map2_chr(CONTROL_VARS, vals, ~ paste0(.x, "_", .y)), collapse = "_")
+  
+  cat("\n\n######", paste(CONTROL_VARS, as.character(unlist(vals)), sep = ": ", collapse = " | "),
+      paste0("(", interval, " mm) ######\n"))
+  
+  result = compare_subset(subset_idx, groups, appr, appr_dict)
+  
+  # print results
+  iwalk(result, function(comparisons, metric_name) {
+    cat("---------------", metric_name, "---------------\n")
+    iwalk(comparisons, ~ cat(.y, ":", .x, "\n"))
   })
+  
+  result
+}) |>
+  set_names(apply(control_combos, 1, paste, collapse = "_")) |>
+  compact()  # drop NULLs (skipped subsets)
 
-## ranking dissimilarities
-# tidy_results |>
-# tidy_results2 |>
-tidy_results3 |>
-  group_by(Column, Metric) |>
+
+# tidy up and rank...
+tidy_results = imap_dfr(results, function(context_data, context_name) {
+  imap_dfr(context_data, function(comparisons, metric_name) {
+    tibble(
+      Context    = context_name,
+      Metric     = metric_name,
+      Comparison = names(comparisons),
+      Value      = unlist(comparisons)
+    )
+  })
+})
+
+METRIC_ORDER = c(
+  "Mahalanobis Distance",
+  "Euclidean Distance",
+  "Spectral Angler Mapper",
+  "Correlation Dissimilarity",
+  "Moving Window Correlation Dissimilarity"
+)
+
+# ready to save...
+tidy_results |>
+  group_by(Comparison, Metric) |>
   summarise(MetricMean = mean(Value), .groups = "drop") |>
-  tidyr::pivot_wider(names_from = Metric, values_from = MetricMean) |>
-  arrange(
-    desc(`Mahalanobis Distance`),      # Primary: Best for finding outliers
-    desc(`Euclidean Distance`),        # Secondary: Overall magnitude/shape difference
-    desc(`Spectral Angler Mapper`),     # Tertiary: Pure shape difference (intensity-invariant)
-    desc(`Correlation Dissimilarity`), # Quaternary: Global shape difference
-    desc(`Moving Window Correlation Dissimilarity`) # Quinary: Localized shape differences
-  ) |> 
-  select(Column,
-         `Mahalanobis Distance`,
-         `Euclidean Distance`,
-         `Spectral Angler Mapper`,
-         `Correlation Dissimilarity`,
-         `Moving Window Correlation Dissimilarity`)
-#===============================================================================
+  pivot_wider(names_from = Metric, values_from = MetricMean) |>
+  arrange(across(all_of(METRIC_ORDER), desc)) |>
+  select(Comparison, all_of(METRIC_ORDER))
+# |> write.csv(file = "CONTEXT_n.csv, row.names = F)
+#==============================================================================#
 
 # heatmap to help visualization
 require(gplots)
@@ -703,11 +642,11 @@ heatmap.2(samD,
           margins = c(5, 5))
 
 
-  #==============================================================================#
-#                           SPECTRA SIMILARITY ANALYSIS                        #
-#                              [pristine vs. colored]                          #
 #==============================================================================#
-groups_ref = data2 |> 
+#                               pristine vs. colored                           #
+#==============================================================================#
+# calculate mean absorbance spectra for pristine...
+groups_ref = pristine2 |> 
   group_by(POLYMER, SIZE_CODE, SIZE_INTERVALS_mm, MASS_mg) |> 
   summarise(mean_spectrum = list(colMeans(spcA)), .groups = "drop")
 
@@ -716,13 +655,13 @@ rownames(mean_spectra_ref) = paste0(groups_ref$POLYMER, "_",
                                     groups_ref$SIZE_CODE, 
                                     groups_ref$MASS_mg)
 
-
-groups_new = new2 |> 
+# calculate mean absorbance spectra for colored...
+groups_new = colored2 |> 
   group_by(POLYMER, SIZE_CODE, SIZE_INTERVALS_mm, MASS_mg) |> 
   summarise(mean_spectrum = list(colMeans(spcA)), .groups = "drop")
 
 mean_spectra_new = do.call(rbind, groups_new$mean_spectrum)
-rownames(mean_spectra_new) = paste0("ALL_",
+rownames(mean_spectra_new) = paste0("MIX_",
                                     groups_new$SIZE_CODE,
                                     groups_new$MASS_mg)
 
@@ -787,7 +726,7 @@ for (mass in sort(unique(groups_new$MASS_mg), decreasing = TRUE)) {
   for (size in unique(groups_new$SIZE_CODE)) {
     
     # find the EXTERNAL group name for this mass/size
-    external_group_name = paste0("ALL_", size, mass)
+    external_group_name = paste0("MIX_", size, mass)
     external_col_index = which(rownames(mean_spectra_new) == external_group_name)
     
     # find the INTERNAL group names for this mass/size
@@ -812,28 +751,25 @@ for (mass in sort(unique(groups_new$MASS_mg), decreasing = TRUE)) {
         internal_name = rownames(mean_spectra_ref)[row_idx]
         
         diss_value = round(metric_matrix[row_idx, external_col_index], 5)
-        cat(internal_name, "VS", external_group_name, ":", diss_value, "\n")
+        cat(internal_name, "vs", external_group_name, ":", diss_value, "\n")
         
         # store the result if needed
-        subset_results[[appr_dict_cross[name]]][[paste0(internal_name, " VS ", external_group_name)]] = diss_value
+        subset_results[[appr_dict_cross[name]]][[paste0(internal_name, " vs ", external_group_name)]] = diss_value
       }
     }
     results_cross[[paste0("Mass_", mass, "_Size_", size)]] = subset_results
   }
 }
 
-#==============================================================================#
-# tidy up, again...
-require(purrr)
-require(tidyr)
 
+# tidy up...
 results_cross |> 
   imap_dfr(function(context_data, context_name) {
     
     imap_dfr(context_data, function(metric_vector, metric_name) {
       
       tibble(
-        Column = names(metric_vector),
+        Comparison = names(metric_vector),
         Metric = metric_name,
         Value  = unlist(metric_vector)
       )
@@ -847,12 +783,13 @@ results_cross |>
     desc(`Correlation Dissimilarity`),
     desc(`Moving Window Correlation Dissimilarity`)
   ) |> 
-  select(Column,
+  select(Comparison,
          `Mahalanobis Distance`,
          `Euclidean Distance`,
          `Spectral Angler Mapper`,
          `Correlation Dissimilarity`,
          `Moving Window Correlation Dissimilarity`)
+# |> write.csv(file = "CONTEXT_iv.csv, row.names = F)
 #===============================================================================
 
 # heatmaps
