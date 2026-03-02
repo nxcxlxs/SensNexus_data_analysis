@@ -75,8 +75,8 @@ Results are tidied into `tidy_results` — a long-format tibble with columns
 To save, uncomment and rename the last line to match the active context:
 
 ​```r
-# |> write.csv(file = "CONTEXT_i.csv", row.names = FALSE)
-​```
+# |> write.csv(file = "CONTEXT_n.csv", row.names = FALSE)
+```
 
 ---
 
@@ -93,9 +93,9 @@ pristine reference set before distances are computed.
 
 Save via:
 
-​```r
+```r
 # |> write.csv(file = "CONTEXT_iv.csv", row.names = FALSE)
-​```
+```
 
 ---
 
@@ -112,10 +112,17 @@ Save via:
 
 ## Dependencies
 
-​```r
-library(purrr); library(tidyr); library(dplyr)
-library(ggplot2); library(patchwork); library(factoextra)
-library(effectsize); library(resemble)
-library(tripack); library(splancs)
-library(gplots); library(RColorBrewer)
-​```
+```r
+library(purrr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(factoextra)
+library(effectsize)
+library(resemble)
+library(tripack)
+library(splancs)
+library(gplots)
+library(RColorBrewer)
+```
