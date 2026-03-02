@@ -42,10 +42,10 @@ They are applied in priority order during ranking:
 
 ### CONFIG block — the only section you need to change
 
-​```r
+```r
 CONTROL_VARS = c("MASS_mg", "SIZE_CODE")
 VARY_LABEL   = function(row) paste0(row$POLYMER, "_", row$SIZE_CODE, row$MASS_mg)
-​```
+```
 
 **`CONTROL_VARS`** defines which two variables are *held fixed* to form a subset.
 Within each subset, all pairwise comparisons are made across the remaining (varying) variable.
@@ -74,7 +74,7 @@ Results are tidied into `tidy_results` — a long-format tibble with columns
 `Context`, `Metric`, `Comparison`, `Value` — then summarised and ranked.
 To save, uncomment and rename the last line to match the active context:
 
-​```r
+```r
 # |> write.csv(file = "CONTEXT_n.csv", row.names = FALSE)
 ```
 
