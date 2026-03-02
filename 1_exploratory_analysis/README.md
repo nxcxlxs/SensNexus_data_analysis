@@ -2,8 +2,7 @@
 
 ## Overview
 
-This script performs spectral dissimilarity analysis on Vis-NIR-SWIR reflectance
-spectra of pristine and colored microplastic samples. It computes pairwise
+The `exploratory_analysis.R` script performs spectral dissimilarity analysis on Vis-NIR-SWIR reflectance spectra of pristine and colored microplastic samples. It computes pairwise
 dissimilarities between mean group spectra using five complementary metrics,
 organizes results by experimental context, and ranks polymer comparisons from
 most to least dissimilar.
