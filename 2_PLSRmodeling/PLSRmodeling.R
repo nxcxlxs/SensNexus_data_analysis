@@ -144,7 +144,7 @@ R2 = function(obs, pred){
         R2 = 1 - SSE / SST
         return(R2)
 }
-#=====================================###======================================#
+#=============THIS SHOULD BE INCLUDED AFTER THE FIRST PREDICTIONS==============#
 
 # fitting PLSR
 set.seed(21)
