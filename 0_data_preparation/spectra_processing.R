@@ -173,5 +173,5 @@ matplot(colnames(pristine_denoised$spc[, snr_region]),
 
 
 # save it
-saveRDS(colored_denoised, "../preprocessed_data/pristine_denoised.rds")
+saveRDS(pristine_denoised, "../preprocessed_data/pristine_denoised.rds")
 saveRDS(colored_denoised, "../preprocessed_data/colored_denoised.rds")
