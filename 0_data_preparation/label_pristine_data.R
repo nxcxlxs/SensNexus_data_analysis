@@ -17,7 +17,7 @@ spec = spec[2:nrow(spec), ]
 rownames(spec) = sprintf("spec%03d", 1:nrow(spec)) # prefix `spec`+ 3 seq digits
 spec = as.data.frame(spec)
 
-# isolate contaminated soil data
+# isolate contaminated soil data (see `raw_spectra/notes [31.05.2025].txt`)
 spec = spec[1:288, ]
 
 # load the sample design file
