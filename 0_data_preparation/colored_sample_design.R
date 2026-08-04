@@ -1,5 +1,5 @@
 require(dplyr)
-require(writexl)
+
 
 # define experimental factors
 polymers = c("ALL")
@@ -18,23 +18,23 @@ design2 = expand.grid(
 
 # map size codes
 size_code_map = c("4.80–1.00" = "A", "1.00–0.60" = "B", "0.60–0.053" = "C")
+
 design2 = design2 |>
   mutate(
     SIZE_CODE = size_code_map[as.character(SIZE_INTERVALS_mm)],
     SAMPLE_CODE = paste0("MIX_", SIZE_CODE, MASS_mg, "_", REPLICATE)
   )
 
-# define sort order for Sample_ID assignment
+# define sort order for sample_ID assignment
 design2 = design2 |> 
   arrange(SIZE_CODE, desc(as.numeric(as.character(MASS_mg))), REPLICATE)
 
 design2$SAMPLE_ID = 289:348
 
 # reorder columns
-design2 = design |>
+design2 = design2 |>
   select(SAMPLE_ID, SAMPLE_CODE, POLYMER, SIZE_INTERVALS_mm,
          SIZE_CODE, MASS_mg, REPLICATE)
 
 # save spreadsheet
-setwd("C:/Users/nicolas/Documents/Dissertação/SENSNEXUS_data")
-write.csv2(design, "sample_design2.csv")
+write.csv2(design, "colored_sample_design.csv")
