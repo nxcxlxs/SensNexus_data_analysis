@@ -1,5 +1,5 @@
 require(dplyr)
-require(writexl)
+
 
 # define experimental factors
 polymers = c("PP", "PVC", "PET", "PE")
@@ -16,7 +16,8 @@ design = expand.grid(
   stringsAsFactors = FALSE
 )
 
-# identify prepared combinations (PP and PVC, two size intervals, all masses)
+# identify previously prepared samples (PP and PVC, two size intervals, all masses)
+                                         # see `raw_spectra/notes [31.05.2025].txt`
 prepared_combos = expand.grid(
   POLYMER = c("PP", "PVC"),
   SIZE_INTERVALS_mm = sizes_mm[1:2],  # "4.80–1.00 mm" and "1.00–0.60 mm"
@@ -32,7 +33,7 @@ design = design |>
                                     "MASS_mg")) |>
   mutate(PREPARED = if_else(is.na(PREPARED), FALSE, TRUE))
 
-# define sort order for Sample_ID assignment
+# define sort order for sample_ID assignment
 design = design |>
   mutate(
     POLYMER = factor(POLYMER, levels = polymers),
@@ -51,12 +52,13 @@ unprepared_samples = design |>
   arrange(POLYMER, SIZE_INTERVALS_mm, MASS_mg, REPLICATE) |>
   mutate(SAMPLE_ID = max(prepared_samples$SAMPLE_ID) + row_number())
 
-# recombine full dataset
+# combine full dataset
 design = bind_rows(prepared_samples, unprepared_samples) |>
   arrange(SAMPLE_ID)
 
 # map size codes
 size_code_map = c("4.80–1.00" = "A", "1.00–0.60" = "B", "0.60–0.053" = "C")
+
 design = design |>
   mutate(
     SIZE_CODE = size_code_map[as.character(SIZE_INTERVALS_mm)],
@@ -70,5 +72,4 @@ design = design |>
 
 
 # save spreadsheet
-setwd("C:/Users/nicolas/Documents/Dissertação/SENSNEXUS_data")
-write.csv2(design, "sample_design.csv")
+write.csv2(design, "pristine_sample_design.csv")
