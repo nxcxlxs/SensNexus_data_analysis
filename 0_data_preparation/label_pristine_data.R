@@ -60,4 +60,4 @@ plot_spectra = function(data, code_prefix) {
       title = code_prefix)
 }
 
-plot_spectra(datsoil, "PVC_A1.2") # e.g.
+plot_spectra(pristine, "PVC_A1.2") # e.g.

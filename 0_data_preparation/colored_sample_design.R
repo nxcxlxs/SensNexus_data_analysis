@@ -37,4 +37,4 @@ design2 = design2 |>
          SIZE_CODE, MASS_mg, REPLICATE)
 
 # save spreadsheet
-write.csv2(design, "colored_sample_design.csv", row.names = F)
+write.csv2(design2, "../raw_spectra/colored_sample_design.csv", row.names = F)

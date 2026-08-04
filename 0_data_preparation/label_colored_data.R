@@ -19,11 +19,11 @@ rownames(spec) = sprintf("spec%03d", 289:(288 + nrow(spec)))
 spec = as.data.frame(spec)
 
 # load the sample design spreadsheet
-design2 = read.csv2("../colored_sample_design.csv")
+design2 = read.csv2("../raw_spectra//colored_sample_design.csv")
 
 # merge datasets
 design2$spc = spec
 colored = design2
 
 # save compiled data
-saveRDS(design, "..raw_spectra/raw_colored.rds")
+saveRDS(colored, "../raw_spectra/raw_colored.rds")
