@@ -72,4 +72,4 @@ design = design |>
 
 
 # save spreadsheet
-write.csv2(design, "pristine_sample_design.csv")
+write.csv2(design, "pristine_sample_design.csv", row.names = F)
