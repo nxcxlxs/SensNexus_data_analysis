@@ -1,8 +1,11 @@
+require(prospectr)
+
+
 # load processed data
-pristine = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_data.rds")
-pristine_raw = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil.rds")
-colored = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_newData.rds") 
-colored_raw = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil2.rds")
+pristine = readRDS("../preprocessed_data/pristine_denoised.rds")
+pristine_raw = readRDS("../raw_spectra/raw_pristine.rds")
+colored = readRDS("../preprocessed_data/pristine_denoised.rds") 
+colored_raw = readRDS("../raw_spectra/raw_colored.rds")
 
 # convert spectra to absorbance
 pristine$spcA = log(1/pristine$spc)
@@ -36,14 +39,14 @@ matplot(colnames(colored$spcA),
                   alpha = 0.3))
 
 ################################################################################
-#                           PREPROCESSING TREATMENTS                           #
+#                     PREPROCESSING TREATMENTS BOILERPLATE                     #
 ################################################################################
-require(prospectr)
-# M1 (raw data) = `datsoil.rds` & `datsoil2.rds`
-# from `compile_design_data.R`, both loaded as `pristine_raw` & `colored_raw`
 
-# M2 (minimal) = `deNoised_data.rds` & `deNoised_newData.rds`
-# from `noise_scatter_correction.R`, both loaded as `pristine` & `colored`
+# M1 (raw data) = `raw_pristine.rds` & `raw_colored.rds`
+# from `label_pristine_data.R` & `label_colored_data.R`
+
+# M2 (minimal) = `pristine_denoised.rds` & `colored_denoised.rds`
+# from `spectra_processing.R`
 
 # M3 (in-between) = SGf + SNV + movav
 pristine$spcAmovav = movav(standardNormalVariate(pristine$spcA), w = 11)
@@ -68,6 +71,7 @@ colored$spcARmovav = movav(standardNormalVariate(colored$spcAR), w = 11)
 
 ## visualize diferences (e.g., pristine raw vs. full preprocessing)============#
 par(mfrow = c(1, 2))
+
 matplot(colnames(pristine_raw$spcA),
         t(pristine_raw$spcA),
         main = "Absorbance spectra profile\n (raw)",
@@ -145,6 +149,13 @@ R2 = function(obs, pred){
         return(R2)
 }
 #=============THIS SHOULD BE INCLUDED AFTER THE FIRST PREDICTIONS==============#
+
+
+                        # LAST EDITING: AUGUST 5th 2026 #
+
+# I need to rewrite the whole code to make sense of the models increasing complexity
+# e.g.: `PLSR_mod_mass` should be `PLSR_mod_mass4` because it's data are most processed 
+
 
 # fitting PLSR
 set.seed(21)
