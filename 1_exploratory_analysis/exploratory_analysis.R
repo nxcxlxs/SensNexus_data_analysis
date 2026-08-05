@@ -1,11 +1,25 @@
+require(factoextra)
+require(tripack)
+require(splancs)
+require(dplyr)
+require(ggplot2)
+require(RColorBrewer)
+require(patchwork)
+require(effectsize)
+require(resemble)
+require(purrr)
+require(tidyr)
+require(gplots)
+
+
 # load data
 ## raw for PCA
-pristine = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil.rds")
-colored = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil2.rds")
+pristine = readRDS("../raw_spectra/raw_pristine.rds")
+colored = readRDS("../raw_spectra/raw_colored.rds")
 
 ## denoised for dissimilarity
-pristine2 = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_data.rds")
-colored2 = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_newData.rds")
+pristine2 = readRDS("../preprocessed_data/pristine_denoised.rds")
+colored2 = readRDS("../preprocessed_data/colored_denoised.rds")
 
 # convert spectra to absorbance
 pristine$spcA = log(1/pristine$spc)
@@ -20,7 +34,6 @@ colored2$spcA = log(1/colored$spc)
 pcspec = prcomp(pristine$spcA)
 summary(pcspec)[[6]][, 1:10] # good amount of variance explained by it...
 
-require(factoextra)
 # eigenvalues vs. number of dimensions (screeplot)
 fviz_eig(pcspec, addlabels = T, geom = "bar",
          ncp = 3, main = "", ggtheme = theme_gray())
@@ -67,8 +80,6 @@ plot(colnames(pristine$spcA), pcspec$rotation[,ncol(pcspec$rotation)],
 #==============================================================================#
 #                      CHECK SPECTRAL PREDICTION DOMAIN                        #
 #==============================================================================#
-require(tripack)
-
 # PCA scores triangulation
 randTr = tri.mesh(pcspec$x[, 1], pcspec$x[, 2])
 
@@ -104,7 +115,7 @@ legend("topright",
        lty    = c(NA, NA, 1),
        lwd    = c(NA, NA, 2))
   
-require(splancs)
+
 poly_coords = cbind(randCH$x, randCH$y)
 poly_coords = rbind(poly_coords, poly_coords[1, ])
 
@@ -124,7 +135,6 @@ points(pts[!inside, 1], pts[!inside, 2],
        col = adjustcolor("red", alpha.f = 0.8),
        lwd = 2)
 
-require(dplyr)
 colored |> 
   filter(!inside) |> 
   select(SAMPLE_ID, SAMPLE_CODE, SIZE_INTERVALS_mm,
@@ -142,8 +152,8 @@ legend_levels = c("Pristine polymer samples",
                    "Colored polymer samples",
                    "Samples outside prediction domain",
                    "Convex hull delimitation")
-require(ggplot2)
-ggplot() +
+
+gplot() +
   geom_point(aes(x = pcspec$x[,1], y = pcspec$x[,2],
                  color = factor("Pristine polymer samples", levels = legend_levels)),
              size = 3, alpha = 0.5) +
@@ -230,7 +240,6 @@ p = ggplot() +
         legend.key.size = unit(1, 'cm'))
 
 # spectra distribution (grouped by mass)
-require(RColorBrewer)
 p3 = fviz_pca_ind(pcspec, geom = "point",
              title = "",
              pointshape = 16,
@@ -346,7 +355,6 @@ p4 = fviz_pca_ind(pcspec, geom = "point",
 
 
 # compose panel
-require(patchwork)
 p/(p1+p2+p3)/p4 +
   plot_annotation(tag_levels = 'a',
                   tag_prefix = '(', tag_suffix = ')') &
@@ -367,7 +375,6 @@ eta_squared(aov(pcspec$x[ ,1] ~ pristine$MASS_mg))
 eta_squared(aov(pcspec$x[ ,1] ~ pristine$POLYMER))
 
 ## size effect in PC2
-require(effectsize)
 eta_squared(aov(pcspec$x[ ,2] ~ pristine$MASS_mg))
 eta_squared(aov(pcspec$x[ ,2] ~ pristine$POLYMER))
 
@@ -383,8 +390,6 @@ groups = pristine2 |>
 
 mean_spectra_matrix = do.call(rbind, groups$mean_spectrum)
 
-
-require(resemble)
 # compute Euclidian distance
 EucD = f_diss(Xr = mean_spectra_matrix,
               Xu = mean_spectra_matrix,
@@ -434,15 +439,13 @@ appr_dict = c(
   "samD" = "Spectral Angler Mapper")
 
 
-library(purrr)
-library(tidyr)
 #==============================================================================#
 #         CONFIG - change these to switch what is controlling vs. varying      #
 #==============================================================================#
 CONTROL_VARS = c("MASS_mg", "SIZE_CODE") # CONTEXT_i = c("MASS_mg", "SIZE_CODE")
                                          # CONTEXT_ii = c("POLYMER", "SIZE_CODE")
                                          # CONTEXT_iii = c("MASS_mg", "POLYMER")
-VARY_LABEL   = function(row) paste0(row$POLYMER, "_", row$SIZE_CODE, row$MASS_mg)
+VARY_LABEL = function(row) paste0(row$POLYMER, "_", row$SIZE_CODE, row$MASS_mg)
 
 
 # run all approach comparisons for one subset of groups...
@@ -527,11 +530,10 @@ tidy_results |>
   arrange(across(all_of(METRIC_ORDER), desc)) |>
   select(Comparison, all_of(METRIC_ORDER))
 # |> write.csv(file = "CONTEXT_n.csv, row.names = F)
+
 #==============================================================================#
 
 # heatmap to help visualization
-require(gplots)
-
 labels = paste0(groups$POLYMER, "_", groups$SIZE_CODE, groups$MASS_mg)
 rownames(mean_spectra_matrix) = labels
 
@@ -810,8 +812,8 @@ heatmap.2(EucD_cross,
           key = TRUE,
           keysize = 1,
           key.title = NA,
-          key.par=list(mgp=c(1, 0.5, 0),
-                       mar=c(5, 2, 1.8, 1)),
+          key.par = list(mgp = c(1, 0.5, 0),
+                         mar = c(5, 2, 1.8, 1)),
           key.xlab = "Euclidean Distance",
           trace = "none",
           density.info = "none",
@@ -833,8 +835,8 @@ heatmap.2(mahD_cross,
           key = TRUE,
           keysize = 1,
           key.title = NA,
-          key.par=list(mgp=c(1, 0.5, 0),
-                       mar=c(5, 2, 1.8, 1)),
+          key.par = list(mgp = c(1, 0.5, 0),
+                         mar = c(5, 2, 1.8, 1)),
           key.xlab = "Mahalanobis Distance",
           trace = "none",
           density.info = "none",
@@ -855,8 +857,8 @@ heatmap.2(cd1_cross,
           key = TRUE,
           keysize = 1,
           key.title = NA,
-          key.par=list(mgp=c(1, 0.5, 0),
-                       mar=c(5, 2, 1.8, 1)),
+          key.par =list (mgp = c(1, 0.5, 0),
+                         mar = c(5, 2, 1.8, 1)),
           key.xlab = "Correlation Dissimilarity",
           trace = "none",
           density.info = "none",
@@ -877,8 +879,8 @@ heatmap.2(mwcd_cross,
           key = TRUE,
           keysize = 1,
           key.title = NA,
-          key.par=list(mgp=c(1, 0.5, 0),
-                       mar=c(5, 2, 1.8, 1)),
+          key.par = list(mgp = c(1, 0.5, 0),
+                         mar = c(5, 2, 1.8, 1)),
           key.xlab = "Mov. Window Corr. Dissim.",
           trace = "none",
           density.info = "none",
@@ -899,10 +901,11 @@ heatmap.2(samD_cross,
           key = TRUE,
           keysize = 1,
           key.title = NA,
-          key.par=list(mgp=c(1, 0.5, 0),
-                       mar=c(5, 2, 1.8, 1)),
+          key.par = list(mgp = c(1, 0.5, 0),
+                         mar = c(5, 2, 1.8, 1)),
           key.xlab = "Cosine Distance",
           trace = "none",
           density.info = "none",
           col = heat.colors(256, rev = T),
           margins = c(8, 8))
+# repetitive because that's a lot of info and each may need different editing... 
