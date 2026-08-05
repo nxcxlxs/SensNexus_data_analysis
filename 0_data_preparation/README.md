@@ -87,9 +87,7 @@ stage:
 | Step               | Function                        | Key parameters                                         |
 |---|---|---|
 | Splice correction   | `prospectr::spliceCorrection()` | Splice wavelengths pulled from an ASD file's metadata (fields 30–31) |
-| Denoising           | `prospectr::savitzkyGolay()`    | `m = differentiation order`,\
-`p =  polynomial order` (`poly_sg`),\
-`w = window size` (`swindow_sg`)   |
+| Denoising           | `prospectr::savitzkyGolay()`    | `m = differentiation order`,<br> `p =  polynomial order` (`poly_sg`),<br> `w = window size` (`swindow_sg`)   |
 
 A signal-to-noise ratio check (mean / SD over the 1000–1100 nm region) is
 also run before and after denoising to confirm the filter improves spectral
