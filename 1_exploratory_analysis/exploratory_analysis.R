@@ -25,8 +25,8 @@ colored2 = readRDS("../preprocessed_data/colored_denoised.rds")
 pristine$spcA = log(1/pristine$spc)
 colored$spcA = log(1/colored$spc)
 
-pristine2$spcA = log(1/pristine$spc)
-colored2$spcA = log(1/colored$spc)
+pristine2$spcA = log(1/pristine2$spc)
+colored2$spcA = log(1/colored2$spc)
 
 ################################################################################
 #                         PRINCIPAL COMPONENT ANALYSIS                         #
@@ -153,7 +153,7 @@ legend_levels = c("Pristine polymer samples",
                    "Samples outside prediction domain",
                    "Convex hull delimitation")
 
-gplot() +
+ggplot() +
   geom_point(aes(x = pcspec$x[,1], y = pcspec$x[,2],
                  color = factor("Pristine polymer samples", levels = legend_levels)),
              size = 3, alpha = 0.5) +
@@ -214,7 +214,7 @@ p = ggplot() +
                  color = "Samples"),
              alpha = 0.5,
              size = 3) +
-  labs(x = "PC1 (77.2%)", y = "PC2 (19.7%)") +
+  labs(x = "PC1 (77.2%)", y = "PC2 (19.7%)") + # hardcoded here, can be pulled from `summary(pcspec)`
   scale_color_manual(name = NULL, values = c("Samples" = "steelblue", "Wavelengths" = "black")) +
   geom_segment(data = filt_loading, aes(x = 0, y = 0,
                                         xend = PC1*100,
@@ -401,7 +401,7 @@ EucD = f_diss(Xr = mean_spectra_matrix,
 PCA = pc_projection(mean_spectra_matrix,
                     pc_selection = list("cumvar", 0.99),
                     method = "pca",
-                    center = TRUE, SCALE = FALSE)
+                    center = TRUE, scale = FALSE)
 
 mahD = f_diss(Xr = PCA$scores,
               Xu = PCA$scores,
@@ -436,7 +436,7 @@ appr_dict = c(
   "mahD" = "Mahalanobis Distance",
   "cd1" = "Correlation Dissimilarity",
   "mwcd" = "Moving Window Correlation Dissimilarity",
-  "samD" = "Spectral Angler Mapper")
+  "samD" = "Spectral Angle Mapper")
 
 
 #==============================================================================#
@@ -517,7 +517,7 @@ tidy_results = imap_dfr(results, function(context_data, context_name) {
 METRIC_ORDER = c(
   "Mahalanobis Distance",
   "Euclidean Distance",
-  "Spectral Angler Mapper",
+  "Spectral Angle Mapper",
   "Correlation Dissimilarity",
   "Moving Window Correlation Dissimilarity"
 )
@@ -678,7 +678,7 @@ EucD_cross = f_diss(Xr = mean_spectra_ref,
 PCA_ref = pc_projection(mean_spectra_ref,
                         pc_selection = list("cumvar", 0.99),
                         method = "pca",
-                        center = TRUE, SCALE = FALSE)
+                        center = TRUE, scale = FALSE)
 
 X_new_centered = sweep(mean_spectra_new, 2, PCA_ref$center, FUN = "-")
 X_new_scaled  = sweep(X_new_centered, 2, PCA_ref$scale, FUN = "/")
@@ -708,6 +708,7 @@ mwcd_cross = cor_diss(mean_spectra_ref,
 # spectral angle mapper (CROSS)
 samD_cross = f_diss(mean_spectra_ref,
                     mean_spectra_new,
+                    diss_method = "cosine",
                     center = FALSE, scale = FALSE)
 
 
@@ -719,7 +720,7 @@ appr_dict_cross = c(
   "mahD_cross" = "Mahalanobis Distance",
   "cd1_cross" = "Correlation Dissimilarity",
   "mwcd_cross" = "Moving Window Correlation Dissimilarity",
-  "samD_cross" = "Spectral Angler Mapper")
+  "samD_cross" = "Spectral Angle Mapper")
 
 
 results_cross = list()
@@ -781,17 +782,18 @@ results_cross |>
   arrange(
     desc(`Mahalanobis Distance`),
     desc(`Euclidean Distance`),
-    desc(`Spectral Angler Mapper`),
+    desc(`Spectral Angle Mapper`),
     desc(`Correlation Dissimilarity`),
     desc(`Moving Window Correlation Dissimilarity`)
   ) |> 
   select(Comparison,
          `Mahalanobis Distance`,
          `Euclidean Distance`,
-         `Spectral Angler Mapper`,
+         `Spectral Angle Mapper`,
          `Correlation Dissimilarity`,
          `Moving Window Correlation Dissimilarity`)
 # |> write.csv(file = "CONTEXT_iv.csv, row.names = F)
+
 #===============================================================================
 
 # heatmaps
