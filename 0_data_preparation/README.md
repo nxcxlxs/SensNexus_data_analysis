@@ -1,4 +1,4 @@
-# Sample Design, Labeling & Preprocessing — Microplastic contaminated soil
+# Sample Design, Labeling & Preprocessing
 
 ## Overview
 
@@ -87,7 +87,7 @@ stage:
 | Step               | Function                        | Key parameters                                         |
 |---|---|---|
 | Splice correction   | `prospectr::spliceCorrection()` | Splice wavelengths pulled from an ASD file's metadata (fields 30–31) |
-| Denoising           | `prospectr::savitzkyGolay()`    | `m = 0`, `p = 2` (`poly_sg`), `w = 21` (`swindow_sg`)   |
+| Denoising           | `prospectr::savitzkyGolay()`    | `m = differentiation order`, `p =  polynomial order` (`poly_sg`), `w = window size (must be odd)` (`swindow_sg`)   |
 
 A signal-to-noise ratio check (mean / SD over the 1000–1100 nm region) is
 also run before and after denoising to confirm the filter improves spectral
