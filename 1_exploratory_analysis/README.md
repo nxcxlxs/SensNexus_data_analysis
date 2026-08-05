@@ -1,4 +1,4 @@
-# Spectral Dissimilarity Analysis — Microplastic contaminated soil
+# Spectral Dissimilarity Analysis
 
 ## Overview
 
