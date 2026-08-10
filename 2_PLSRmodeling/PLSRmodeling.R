@@ -403,10 +403,10 @@ for (i in seq_along(calib_preds)) {
 
 
 ################################################################################
-
-# there's the k-fold cross-validation approach left...      # ALWAYS check `min(table(data$strata))`
+#                            K-FOLD CROSS-VALIDATION                           #
+################################################################################
 cv_plsr_model = function(data, spc_matrix, ncomp, nfolds = 4, seed = 999) {
-    set.seed(seed)
+    set.seed(seed)                                # check `min(table(data$strata))`
     
     data$foldCV = NA
     strata = interaction(data$POLYMER, data$MASS_mg, data$SIZE_CODE)
