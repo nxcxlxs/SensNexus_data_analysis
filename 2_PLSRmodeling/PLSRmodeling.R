@@ -269,23 +269,18 @@ legend("bottom",
        inset = -0.03)
 
 
-
-                    # LAST EDITING: AUGUST 10th 2026 #
-
-
-
 # regression coefficients
 par(mfrow = c(2, 2))
 
-plot(as.numeric(colnames(raw$spcA)), PLSR_mod_mass4$coefficients[,1,10],
-     main = "Model 1", # M4
+plot(as.numeric(colnames(pristine_raw$spcA)), PLSR_mod_mass$coefficients[,1,10],
+     main = "Model 1",
      type = "l",
      xlab = "Wavelength (nm)",
      ylab = "Regression coefficient") +
     abline(h = 0, col = "red", lty = 2)
 grid()
 
-plot(as.numeric(colnames(data$spcA)), PLSR_mod_mass2$coefficients[,1,10],
+plot(as.numeric(colnames(pristine$spcA)), PLSR_mod_mass2$coefficients[,1,10],
      main = "Model 2",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -293,7 +288,7 @@ plot(as.numeric(colnames(data$spcA)), PLSR_mod_mass2$coefficients[,1,10],
     abline(h = 0, col = "red", lty = 2)
 grid()
 
-plot(as.numeric(colnames(data$spcAmovav)), PLSR_mod_mass3$coefficients[,1,10],
+plot(as.numeric(colnames(pristine$spcAmovav)), PLSR_mod_mass3$coefficients[,1,10],
      main = "Model 3",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -301,31 +296,27 @@ plot(as.numeric(colnames(data$spcAmovav)), PLSR_mod_mass3$coefficients[,1,10],
     abline(h = 0, col = "red", lty = 2)
 grid()
 
-plot(as.numeric(colnames(data$spcARmovav)), PLSR_mod_mass$coefficients[,1,10],
-     main = "Model 4", # M1
+plot(as.numeric(colnames(pristine$spcARmovav)), PLSR_mod_mass4$coefficients[,1,10],
+     main = "Model 4",
      type = "l",
      xlab = "Wavelength (nm)",
      ylab = "Regression coefficient") +
     abline(h = 0, col = "red", lty = 2)
 grid()
 
+
 # predict on calibration dataset
-PLSR_predC = predict(PLSR_mod_mass, ncomp = 20, newdata = datC$spcARmovav)
+PLSR_predC = predict(PLSR_mod_mass, ncomp = 7, newdata = rawC$spcA)
 PLSR_predC2 = predict(PLSR_mod_mass2, ncomp = 11, newdata = datC$spcA)
 PLSR_predC3 = predict(PLSR_mod_mass3, ncomp = 12, newdata = datC$spcAmovav)
-PLSR_predC4 = predict(PLSR_mod_mass4, ncomp = 7, newdata = rawC$spcA)
+PLSR_predC4 = predict(PLSR_mod_mass4, ncomp = 20, newdata = datC$spcARmovav)
 
 # predict on validation dataset
-PLSR_predV = predict(PLSR_mod_mass, ncomp = 20, newdata = datV$spcARmovav)
+PLSR_predV = predict(PLSR_mod_mass, ncomp = 7, newdata = rawV$spcA)
 PLSR_predV2 = predict(PLSR_mod_mass2, ncomp = 11, newdata = datV$spcA)
 PLSR_predV3 = predict(PLSR_mod_mass3, ncomp = 12, newdata = datV$spcAmovav)
-PLSR_predV4 = predict(PLSR_mod_mass4, ncomp = 7, newdata = rawV$spcA)
+PLSR_predV4 = predict(PLSR_mod_mass4, ncomp = 20, newdata = datV$spcARmovav)
 
-# predict on new dataset
-PLSR_predNew = predict(PLSR_mod_mass, ncomp = 20, newdata = new$spcARmovav)
-PLSR_predNew2 = predict(PLSR_mod_mass2, ncomp = 11, newdata = new$spcA)
-PLSR_predNew3 = predict(PLSR_mod_mass3, ncomp = 12, newdata = new$spcAmovav)
-PLSR_predNew4 = predict(PLSR_mod_mass4, ncomp = 7, newdata = raw_new$spcA)
 
 # plots
 plot(log(datC$MASS_mg), log(PLSR_predC),
@@ -344,6 +335,7 @@ plot(log(datV$MASS_mg), log(PLSR_predV),
      ylim = c(0, 10))
 abline(0, 1)
 
+
 # set validation statistics ===================================================#
 ME = function(obs, pred){
     mean(pred - obs, na.rm = T)
@@ -360,6 +352,7 @@ R2 = function(obs, pred){
     return(R2)
 }
 #==============================================================================#
+
 
 # evaluate quality of predictions
 ## observed responses
@@ -405,84 +398,14 @@ for (i in seq_along(calib_preds)) {
 } 
 
 
-#### EXTERNAL VALIDATION (colored rigid household plastics - cRHP - dataset)
-external_obs = c(rep(list(new$MASS_mg), 3), list(raw_new$MASS_mg))
-external_preds = list(PLSR_predNew, PLSR_predNew2, PLSR_predNew3, PLSR_predNew4)
 
-external_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, external_obs, external_preds)
+# LAST EDITING: AUGUST 10th 2026 #
+# [...]
 
-for (i in seq_along(external_preds)) {
-    cat(paste0("\n======= MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", external_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", external_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", external_stats["R2", i]))
-}
-# ## calibration
-# ME(rawC$MASS_mg, PLSR_predC4)
-# RMSE(rawC$MASS_mg, PLSR_predC4)
-# R2(rawC$MASS_mg, PLSR_predC4)
-# residC = PLSR_predC4 - rawC$MASS_mg # absolute residual = real error
-# residClog = log(PLSR_predC4) - log(rawC$MASS_mg) # log residual = relative error (emphasizes all scales equally)
-# boxplot(residClog ~ rawC$MASS_mg,
-#         main = "Residuals by Mass (Calibration)") # absolute residuals overemphasize
-#                                                   # large errors at higher response values
-# 
-# ## validation
-# ME(rawV$MASS_mg, PLSR_predV4)
-# RMSE(rawV$MASS_mg, PLSR_predV4)
-# R2(rawV$MASS_mg, PLSR_predV4)
-# residV = PLSR_predV4 - rawV$MASS_mg
-# residVlog = log(PLSR_predV4) - log(rawV$MASS_mg)
-# boxplot(residVlog ~ rawV$MASS_mg,
-#         main = "Residuals by Mass (Validation)")
-
-# residuals boxplots
-## calibration
-residC = PLSR_predC - datC$MASS_mg
-residC2 = PLSR_predC2 - datC$MASS_mg
-residC3 = PLSR_predC3 - datC$MASS_mg
-residC4 = PLSR_predC4 - rawC$MASS_mg
-
-# valid_idx = which(PLSR_predC > 0 & datC$MASS_mg > 0) if needed...
-
-residClog = log(PLSR_predC) - log(datC$MASS_mg)
-residClog2 = log(PLSR_predC2) - log(datC$MASS_mg)
-residClog3 = log(PLSR_predC3) - log(datC$MASS_mg)
-residClog4 = log(PLSR_predC4) - log(rawC$MASS_mg)
-
-par(mfrow = c(1, 2))
-boxplot(residC ~ datC$MASS_mg,
-        main = "Residuals by Mass (Calibration)")
-
-boxplot(residClog ~ datC$MASS_mg, # ATTENTION to the log transformation
-        main = "Relative residuals by Mass (Calibration)")
-
-## validation
-residV = PLSR_predV - datV$MASS_mg
-residV2 = PLSR_predV2 - datV$MASS_mg
-residV3 = PLSR_predV3 - datV$MASS_mg
-residV4 = PLSR_predV4 - rawV$MASS_mg
-
-residVlog = log(PLSR_predV) - log(datV$MASS_mg)
-residVlog2 = log(PLSR_predV2) - log(datV$MASS_mg)
-residVlog3 = log(PLSR_predV3) - log(datV$MASS_mg)
-residVlog4 = log(PLSR_predV4) - log(rawV$MASS_mg)
-
-boxplot(residV4 ~ rawV$MASS_mg,
-        main = "Residuals by Mass (Validation)")
-
-boxplot(residVlog4 ~ rawV$MASS_mg,
-        main = "Relative residuals by Mass (Validation)")
 
 ################################################################################
 
-# there's the 10-fold cross-validation approach left...      # ALWAYS check `min(table(data$strata))`
+# there's the k-fold cross-validation approach left...      # ALWAYS check `min(table(data$strata))`
 cv_plsr_model = function(data, spc_matrix, ncomp, nfolds = 4, seed = 999) {
     set.seed(seed)
     
