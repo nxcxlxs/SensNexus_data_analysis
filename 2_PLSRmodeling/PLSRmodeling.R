@@ -175,26 +175,17 @@ PLSR_mod_mass4 = plsr(MASS_mg ~ spcARmovav,
                      validation = "CV")
 
 
-
-                        # LAST EDITING: AUGUST 10th 2026 #
-
-
-
 # check optima `ncomps` values and its recpective cross-validated RMSEP
-min(RMSEP(PLSR_mod_mass)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_mass2)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_mass3)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_mass4)$val["CV", ,][-1])
+RMSEP(PLSR_mod_mass)  # 7 comps...
+RMSEP(PLSR_mod_mass2) # 11 comps...
+RMSEP(PLSR_mod_mass3) # 12 comps...
+RMSEP(PLSR_mod_mass4) # 20 comps...
 
-which.min(RMSEP(PLSR_mod_mass)$val["CV", , ][-1])
-which.min(RMSEP(PLSR_mod_mass2)$val["CV", , ][-1])
-which.min(RMSEP(PLSR_mod_mass3)$val["CV", , ][-1])
-which.min(RMSEP(PLSR_mod_mass4)$val["CV", , ][-1])
-
-# visualize it
+## visualize it
 par(mfrow = c(2, 2), oma = c(3, 1, 0 , 0))
 
-validationplot(PLSR_mod_mass4,
+### M1
+validationplot(PLSR_mod_mass,
                val.type = "RMSEP",
                main = "MODEL 1",
                cex.main = 2,
@@ -204,10 +195,15 @@ validationplot(PLSR_mod_mass4,
                cex.axis = 1.5,
                mgp = c(2.7, 1, 0))
 grid()
-abline(v = 7, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-abline(h = 472.0287, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(v = which.min(RMSEP(PLSR_mod_mass)$val["CV", , ][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = min(RMSEP(PLSR_mod_mass)$val["CV", ,][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
 
 
+### M2
 validationplot(PLSR_mod_mass2,
                val.type = "RMSEP",
                main = "MODEL 2",
@@ -218,9 +214,14 @@ validationplot(PLSR_mod_mass2,
                cex.lab = 2,
                cex.axis = 1.5)
 grid()
-abline(v = 11, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-abline(h = 478.4669, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(v = which.min(RMSEP(PLSR_mod_mass2)$val["CV", , ][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = min(RMSEP(PLSR_mod_mass2)$val["CV", ,][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
 
+### M3
 validationplot(PLSR_mod_mass3,
                val.type = "RMSEP",
                main = "MODEL 3",
@@ -230,10 +231,14 @@ validationplot(PLSR_mod_mass3,
                cex.axis = 1.5,
                mgp = c(2.7, 1, 0))
 grid()
-abline(v = 12, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-abline(h = 434.3338, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(v = which.min(RMSEP(PLSR_mod_mass3)$val["CV", , ][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = min(RMSEP(PLSR_mod_mass3)$val["CV", ,][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
 
-
+### M4
 validationplot(PLSR_mod_mass,
                val.type = "RMSEP",
                main = "MODEL 4",
@@ -244,8 +249,12 @@ validationplot(PLSR_mod_mass,
                cex.axis = 1.5,
                mgp = c(2.7, 1, 0))
 grid()
-abline(v = 20, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-abline(h = 425.7052, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(v = which.min(RMSEP(PLSR_mod_mass4)$val["CV", , ][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = min(RMSEP(PLSR_mod_mass4)$val["CV", ,][-1]),
+       lty = 4, lwd = 2,
+       col = adjustcolor("darkgreen", alpha.f = 0.6))
 
 par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
 plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
@@ -258,6 +267,11 @@ legend("bottom",
        horiz = TRUE,
        cex = 2,
        inset = -0.03)
+
+
+
+                    # LAST EDITING: AUGUST 10th 2026 #
+
 
 
 # regression coefficients
