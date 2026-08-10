@@ -154,7 +154,7 @@ PLSR_mod_mass = plsr(MASS_mg ~ spcA,
                       ncomp = 50,
                       validation = "CV")
 
-set.seed(21) # assure publication reproducibility
+set.seed(21) # ensure publication reproducibility
 
 PLSR_mod_mass2 = plsr(MASS_mg ~ spcA,
                      data = datC,
@@ -192,103 +192,73 @@ which.min(RMSEP(PLSR_mod_mass3)$val["CV", , ][-1])
 which.min(RMSEP(PLSR_mod_mass4)$val["CV", , ][-1])
 
 # visualize it
-# par(mfrow = c(2, 2), oma = c(3, 1, 0 , 0))
-# 
-# validationplot(PLSR_mod_mass4,
-#                val.type = "RMSEP",
-#                main = "MODEL 1",
-#                cex.main = 2,
-#                lwd = 3,
-#                xlab = "",
-#                cex.lab = 2,
-#                cex.axis = 1.5,
-#                mgp = c(2.7, 1, 0))
-# grid()
-# abline(v = 7, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# abline(h = 472.0287, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# 
-# 
-# validationplot(PLSR_mod_mass2,
-#                val.type = "RMSEP",
-#                main = "MODEL 2",
-#                cex.main = 2,
-#                lwd = 3,
-#                xlab = "",
-#                ylab = "",
-#                cex.lab = 2,
-#                cex.axis = 1.5)
-# grid()
-# abline(v = 11, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# abline(h = 478.4669, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# 
-# validationplot(PLSR_mod_mass3,
-#                val.type = "RMSEP",
-#                main = "MODEL 3",
-#                cex.main = 2,
-#                lwd = 3,
-#                cex.lab = 2,
-#                cex.axis = 1.5,
-#                mgp = c(2.7, 1, 0))
-# grid()
-# abline(v = 12, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# abline(h = 434.3338, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# 
-# 
-# validationplot(PLSR_mod_mass,
-#                val.type = "RMSEP",
-#                main = "MODEL 4",
-#                cex.main = 2,
-#                lwd = 3,
-#                ylab = NA,
-#                cex.lab = 2,
-#                cex.axis = 1.5,
-#                mgp = c(2.7, 1, 0))
-# grid()
-# abline(v = 20, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# abline(h = 425.7052, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
-# 
-# par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
-# plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
-# legend("bottom", 
-#        legend = c("CV", "adjusted CV", "Optimal ncomp"),
-#        lty = c(1, 2, 4),
-#        col = c("black", "#DF536B", "darkgreen"),
-#        lwd = c(3, 3, 2),
-#        bty = "n",
-#        horiz = TRUE,
-#        cex = 2,
-#        inset = -0.03)
+par(mfrow = c(2, 2), oma = c(3, 1, 0 , 0))
 
-RMSEP(PLSR_mod_mass)  # 20 comps...
-RMSEP(PLSR_mod_mass2) # 11 comps...
-RMSEP(PLSR_mod_mass3) # 12 comps...
-RMSEP(PLSR_mod_mass4) # 7 comps...
+validationplot(PLSR_mod_mass4,
+               val.type = "RMSEP",
+               main = "MODEL 1",
+               cex.main = 2,
+               lwd = 3,
+               xlab = "",
+               cex.lab = 2,
+               cex.axis = 1.5,
+               mgp = c(2.7, 1, 0))
+grid()
+abline(v = 7, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = 472.0287, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
 
-par(mfrow = c(1, 2))
-plot(PLSR_mod_mass4,
-     ncomp = 10,
-     main = "12 components",
-     xlab = "Observed",
-     ylab = "Predicted")
 
-plot(PLSR_mod_mass4,
-     ncomp = 7,
-     main = "9 components",
-     xlab = "Observed",
-     ylab = "Predicted")
+validationplot(PLSR_mod_mass2,
+               val.type = "RMSEP",
+               main = "MODEL 2",
+               cex.main = 2,
+               lwd = 3,
+               xlab = "",
+               ylab = "",
+               cex.lab = 2,
+               cex.axis = 1.5)
+grid()
+abline(v = 11, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = 478.4669, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
 
-# three first loadings
-plot(PLSR_mod_mass4,
-     "loadings",
-     comps = 1:3,
-     xlab = "Index of the wavelength",
-     ylab = "Loading value") +
-        legend("top",
-               legend = c("comp1", "comp2", "comp3"),
-               col = 1:3,
-               lty = 1,
-               bty = 'n',
-               cex = 0.8)
+validationplot(PLSR_mod_mass3,
+               val.type = "RMSEP",
+               main = "MODEL 3",
+               cex.main = 2,
+               lwd = 3,
+               cex.lab = 2,
+               cex.axis = 1.5,
+               mgp = c(2.7, 1, 0))
+grid()
+abline(v = 12, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = 434.3338, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+
+
+validationplot(PLSR_mod_mass,
+               val.type = "RMSEP",
+               main = "MODEL 4",
+               cex.main = 2,
+               lwd = 3,
+               ylab = NA,
+               cex.lab = 2,
+               cex.axis = 1.5,
+               mgp = c(2.7, 1, 0))
+grid()
+abline(v = 20, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+abline(h = 425.7052, lty = 4, lwd = 2, col = adjustcolor("darkgreen", alpha.f = 0.6))
+
+par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
+plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "")
+legend("bottom",
+       legend = c("CV", "adjusted CV", "Optimal ncomp"),
+       lty = c(1, 2, 4),
+       col = c("black", "#DF536B", "darkgreen"),
+       lwd = c(3, 3, 2),
+       bty = "n",
+       horiz = TRUE,
+       cex = 2,
+       inset = -0.03)
+
 
 # regression coefficients
 par(mfrow = c(2, 2))
