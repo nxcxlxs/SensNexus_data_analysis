@@ -272,7 +272,8 @@ legend("bottom",
 # regression coefficients
 par(mfrow = c(2, 2))
 
-plot(as.numeric(colnames(pristine_raw$spcA)), PLSR_mod_mass$coefficients[,1,10],
+plot(as.numeric(colnames(pristine_raw$spcA)),
+     PLSR_mod_mass$coefficients[,1,10],
      main = "Model 1",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -280,7 +281,8 @@ plot(as.numeric(colnames(pristine_raw$spcA)), PLSR_mod_mass$coefficients[,1,10],
     abline(h = 0, col = "red", lty = 2)
 grid()
 
-plot(as.numeric(colnames(pristine$spcA)), PLSR_mod_mass2$coefficients[,1,10],
+plot(as.numeric(colnames(pristine$spcA)),
+     PLSR_mod_mass2$coefficients[,1,10],
      main = "Model 2",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -288,7 +290,8 @@ plot(as.numeric(colnames(pristine$spcA)), PLSR_mod_mass2$coefficients[,1,10],
     abline(h = 0, col = "red", lty = 2)
 grid()
 
-plot(as.numeric(colnames(pristine$spcAmovav)), PLSR_mod_mass3$coefficients[,1,10],
+plot(as.numeric(colnames(pristine$spcAmovav)),
+     PLSR_mod_mass3$coefficients[,1,10],
      main = "Model 3",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -296,7 +299,8 @@ plot(as.numeric(colnames(pristine$spcAmovav)), PLSR_mod_mass3$coefficients[,1,10
     abline(h = 0, col = "red", lty = 2)
 grid()
 
-plot(as.numeric(colnames(pristine$spcARmovav)), PLSR_mod_mass4$coefficients[,1,10],
+plot(as.numeric(colnames(pristine$spcARmovav)),
+     PLSR_mod_mass4$coefficients[,1,10],
      main = "Model 4",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -391,16 +395,11 @@ for (i in seq_along(calib_preds)) {
     cat(sprintf("RMSE : %.7f\n", calib_stats["RMSE", i]))
     cat(sprintf("R²   : %.7f\n", calib_stats["R2", i]))
     
-    cat("##### VALIDATION #####\n")
+    cat("\n\n##### VALIDATION #####\n")
     cat(sprintf("ME   : %.7f\n", valid_stats["ME", i]))
     cat(sprintf("RMSE : %.7f\n", valid_stats["RMSE", i]))
     cat(sprintf("R²   : %.7f\n", valid_stats["R2", i]))
 } 
-
-
-
-# LAST EDITING: AUGUST 10th 2026 #
-# [...]
 
 
 ################################################################################
@@ -423,8 +422,8 @@ cv_plsr_model = function(data, spc_matrix, ncomp, nfolds = 4, seed = 999) {
                           pred = NA)
     
     for (i in 1:nfolds) {
-        train = data[data$foldCV != i, ]
-        valid = data[data$foldCV == i, ]
+        train = pristine[data$foldCV != i, ]
+        valid = pristine[data$foldCV == i, ]
         
         train_spc = spc_matrix[data$foldCV != i, ]
         valid_spc = spc_matrix[data$foldCV == i, ]
@@ -449,19 +448,25 @@ cv_plsr_model = function(data, spc_matrix, ncomp, nfolds = 4, seed = 999) {
     )
 }
 
-cv_PLSRmod = cv_plsr_model(data, data$spcARmovav, ncomp = 20)
-cv_PLSRmod2 = cv_plsr_model(data, data$spcA, ncomp = 11)
-cv_PLSRmod3 = cv_plsr_model(data, data$spcAmovav, ncomp = 12)
-cv_PLSRmod4 = cv_plsr_model(raw, raw$spcA, ncomp = 7)
+cv_PLSRmod = cv_plsr_model(pristine_raw, pristine_raw$spcA, ncomp = 7)
+cv_PLSRmod2 = cv_plsr_model(pristine, pristine$spcA, ncomp = 11)
+cv_PLSRmod3 = cv_plsr_model(pristine, pristine$spcAmovav, ncomp = 12)
+cv_PLSRmod4 = cv_plsr_model(pristine, pristine$spcARmovav, ncomp = 20)
 
 cv_plsr_results = list(cv_PLSRmod, cv_PLSRmod2, cv_PLSRmod3, cv_PLSRmod4)
 
 for (i in seq_along(cv_plsr_results)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
+    cat(paste0("\n======= PLSR MODEL ", i, " (k-fold CV) =======\n"))
     cat(sprintf("ME   : %.4f\n", cv_plsr_results[[i]]$ME))
     cat(sprintf("RMSE : %.4f\n", cv_plsr_results[[i]]$RMSE))
     cat(sprintf("R²   : %.4f\n", cv_plsr_results[[i]]$R2))
 }
+
+
+
+# LAST EDITING: AUGUST 10th 2026 #
+# [...]
+
 
 
 #==============================================================================#
