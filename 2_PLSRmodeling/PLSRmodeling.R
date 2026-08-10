@@ -180,12 +180,7 @@ PLSR_mod_mass4 = plsr(MASS_mg ~ spcARmovav,
 
 
 
-par(mfrow = c(2, 2))
-validationplot(PLSR_mod_mass, val.type = "RMSEP", main = "MODEL 1")
-validationplot(PLSR_mod_mass2, val.type = "RMSEP", main = "MODEL 2")
-validationplot(PLSR_mod_mass3, val.type = "RMSEP", main = "MODEL 3")
-validationplot(PLSR_mod_mass4, val.type = "RMSEP", main = "MODEL 4")
-
+# check optima `ncomps` values and its recpective cross-validated RMSEP
 min(RMSEP(PLSR_mod_mass)$val["CV", ,][-1])
 min(RMSEP(PLSR_mod_mass2)$val["CV", ,][-1])
 min(RMSEP(PLSR_mod_mass3)$val["CV", ,][-1])
@@ -196,11 +191,7 @@ which.min(RMSEP(PLSR_mod_mass2)$val["CV", , ][-1])
 which.min(RMSEP(PLSR_mod_mass3)$val["CV", , ][-1])
 which.min(RMSEP(PLSR_mod_mass4)$val["CV", , ][-1])
 
-cat("The smallest RMSEP is:", min(RMSEP(PLSR_mod_mass4)$val["CV", ,][-1]))
-cat("The optimal number of components is:",
-    which.min(RMSEP(PLSR_mod_mass4)$val["CV", , ][-1]))
-# ...the 'elbow rule' should be good enough  ¯\_(ツ)_/¯
-
+# visualize it
 # par(mfrow = c(2, 2), oma = c(3, 1, 0 , 0))
 # 
 # validationplot(PLSR_mod_mass4,
