@@ -1,4 +1,6 @@
 require(prospectr)
+require(dplyr)
+require(pls)
 
 
 # load processed data
@@ -14,7 +16,7 @@ pristine_raw$spcA = as.matrix(pristine_raw$spcA)
 
 colored$spcA = log(1/colored$spc)
 colored_raw$spcA = log(1/colored_raw$spc)
-raw_new$spcA = as.matrix(raw_new$spcA)
+colored_raw$spcA = as.matrix(colored_raw$spcA)
 
 # plot spectra profiles
 par(mfrow = c(1, 2))
@@ -37,6 +39,7 @@ matplot(colnames(colored$spcA),
         lty = 1,
         col = rgb(0.1, 0.5, 0.1,
                   alpha = 0.3))
+
 
 ################################################################################
 #                     PREPROCESSING TREATMENTS BOILERPLATE                     #
@@ -100,15 +103,26 @@ pristine$strata = interaction(pristine$POLYMER,
                               pristine$MASS_mg, # treatment` flaggin...
                               pristine$SIZE_CODE)
 
-require(dplyr)
+raw$strata = interaction(raw$POLYMER,
+                         raw$MASS_mg,
+                         raw$SIZE_CODE)
+
 set.seed(1)
+
 datC = pristine |>
     group_by(strata) |>
     sample_frac(0.75)
 
-
 datV = pristine |>
     filter(!(SAMPLE_ID %in% datC$SAMPLE_ID))
+
+
+rawC = pristine_raw |> 
+    group_by(strata) |> 
+    sample_frac(0.75)
+
+rawV = pristine_raw |> 
+    filter(!(SAMPLE_ID %in% rawC$SAMPLE_ID))
 
 
 # check distribution in calibration and validation sets
@@ -133,76 +147,44 @@ cat("`SIZE_CODE` distribution in:\n",
     paste(capture.output(table(datV$SIZE_CODE)), collapse = "\n"))
 
 
-# set basic validation statistics =============================================#
-ME = function(obs, pred){
-        mean(pred - obs, na.rm = T)
-}
+# fitting 75/25 hold-out split models
+PLSR_mod_mass = plsr(MASS_mg ~ spcA,
+                      data = rawC,           # M1 (raw data)
+                      method = "oscorespls",
+                      ncomp = 50,
+                      validation = "CV")
 
-RMSE = function(obs, pred){
-        sqrt(mean((pred - obs)^2, na.rm = T))
-}
-
-R2 = function(obs, pred){
-        SSE = sum((pred - obs)^2, na.rm = T) # squared error sum
-        SST = sum((obs - mean(obs, na.rm = T))^2, na.rm = T) # squares total sum
-        R2 = 1 - SSE / SST
-        return(R2)
-}
-#=============THIS SHOULD BE INCLUDED AFTER THE FIRST PREDICTIONS==============#
-
-
-                        # LAST EDITING: AUGUST 5th 2026 #
-
-# I need to rewrite the whole code to make sense of the models increasing complexity
-# e.g.: `PLSR_mod_mass` should be `PLSR_mod_mass4` because it's data are most processed 
-
-
-# fitting PLSR
-set.seed(21)
-require(pls)
-PLSR_mod_mass = plsr(MASS_mg ~ spcARmovav,
-                data = datC,
-                method = "oscorespls",      # Wadoux's approach...
-                ncomp = 50,
-                validation = "CV")
-
+set.seed(21) # assure publication reproducibility
 
 PLSR_mod_mass2 = plsr(MASS_mg ~ spcA,
                      data = datC,
-                     method = "oscorespls", # my approach...
+                     method = "oscorespls", # M2 (minimal preprocessing)
                      ncomp = 50,
                      validation = "CV")
 
 PLSR_mod_mass3 = plsr(MASS_mg ~ spcAmovav,
                       data = datC,
-                      method = "oscorespls", # in-between Wadoux's and mine...
+                      method = "oscorespls", # M3 (intermediate preprocessing)
                       ncomp = 50,
                       validation = "CV")
 
-raw$strata = interaction(raw$POLYMER,
-                         raw$MASS_mg,
-                         raw$SIZE_CODE)
+PLSR_mod_mass4 = plsr(MASS_mg ~ spcARmovav,
+                     data = datC,
+                     method = "oscorespls", # M4 (full preprocessing)
+                     ncomp = 50,
+                     validation = "CV")
 
-set.seed(1)
 
-rawC = raw |> 
-    group_by(strata) |> 
-    sample_frac(0.75)
 
-rawV = raw |> 
-    filter(!(SAMPLE_ID %in% rawC$SAMPLE_ID))
+                        # LAST EDITING: AUGUST 10th 2026 #
 
-PLSR_mod_mass4 = plsr(MASS_mg ~ spcA,
-                      data = rawC,           # raw spectra...
-                      method = "oscorespls",
-                      ncomp = 50,
-                      validation = "CV")
+
 
 par(mfrow = c(2, 2))
-validationplot(PLSR_mod_mass, val.type = "RMSEP", main = "MODEL 1") # M4
+validationplot(PLSR_mod_mass, val.type = "RMSEP", main = "MODEL 1")
 validationplot(PLSR_mod_mass2, val.type = "RMSEP", main = "MODEL 2")
 validationplot(PLSR_mod_mass3, val.type = "RMSEP", main = "MODEL 3")
-validationplot(PLSR_mod_mass4, val.type = "RMSEP", main = "MODEL 4") # M1
+validationplot(PLSR_mod_mass4, val.type = "RMSEP", main = "MODEL 4")
 
 min(RMSEP(PLSR_mod_mass)$val["CV", ,][-1])
 min(RMSEP(PLSR_mod_mass2)$val["CV", ,][-1])
@@ -386,6 +368,23 @@ plot(log(datV$MASS_mg), log(PLSR_predV),
      pch = 16,
      ylim = c(0, 10))
 abline(0, 1)
+
+# set validation statistics ===================================================#
+ME = function(obs, pred){
+    mean(pred - obs, na.rm = T)
+}
+
+RMSE = function(obs, pred){
+    sqrt(mean((pred - obs)^2, na.rm = T))
+}
+
+R2 = function(obs, pred){
+    SSE = sum((pred - obs)^2, na.rm = T) # squared sum error
+    SST = sum((obs - mean(obs, na.rm = T))^2, na.rm = T) # squares sum total
+    R2 = 1 - SSE / SST
+    return(R2)
+}
+#==============================================================================#
 
 # evaluate quality of predictions
 ## observed responses
@@ -820,721 +819,3 @@ require(patchwork)
 res / res2 + plot_annotation(tag_levels = 'a',
                              tag_prefix = '(',
                              tag_suffix = ')')
-
-################################################################################
-#                    MODELING FOR SINGLE POLYMERS QUANTIFICATION               #
-################################################################################
-
-PP_data = data |> 
-    filter(POLYMER == "PP")
-
-PP_raw = raw |> 
-    filter(POLYMER == "PP")
-
-PVC_data = data |> 
-    filter(POLYMER == "PVC")
-
-PVC_raw = raw |> 
-    filter(POLYMER == "PVC")
-
-PET_data = data |> 
-    filter(POLYMER == "PET")
-
-PET_raw = raw |> 
-    filter(POLYMER == "PET")
-
-PE_data = data |> 
-    filter(POLYMER == "PE")
-
-PE_raw = raw |> 
-    filter(POLYMER == "PE")
-
-new = new |> 
-    mutate(PP_mg = MASS_mg/4,
-           PVC_mg = MASS_mg/4,
-           PET_mg = MASS_mg/4,
-           PE_mg = MASS_mg/4)
-
-raw_new = raw_new |> 
-    mutate(PP_mg = MASS_mg/4,
-           PVC_mg = MASS_mg/4,
-           PET_mg = MASS_mg/4,
-           PE_mg = MASS_mg/4)
-
-set.seed(777)
-
-PLSR_mod_PP = plsr(MASS_mg ~ spcARmovav,
-                     data = PP_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_mod_PP2 = plsr(MASS_mg ~ spcA,
-                      data = PP_data,
-                      method = "oscorespls",
-                      ncomp = 50,
-                      validation = "CV")
-
-PLSR_mod_PP3 = plsr(MASS_mg ~ spcAmovav,
-                      data = PP_data,
-                      method = "oscorespls",
-                      ncomp = 50,
-                      validation = "CV")
-
-PLSR_mod_PP4 = plsr(MASS_mg ~ spcA,
-                      data = PP_raw,
-                      method = "oscorespls",
-                      ncomp = 50,
-                      validation = "CV")
-
-which.min(RMSEP(PLSR_mod_PP)$val["CV", , ][-1]) # 3
-which.min(RMSEP(PLSR_mod_PP2)$val["CV", , ][-1]) # 2
-which.min(RMSEP(PLSR_mod_PP3)$val["CV", , ][-1]) # 8
-which.min(RMSEP(PLSR_mod_PP4)$val["CV", , ][-1]) # 2
-
-## polymer-specific CV
-cv_PLSR_PP = cv_plsr_model(PP_data, PP_data$spcARmovav, ncomp = 3)
-cv_PLSR_PP2 = cv_plsr_model(PP_data, PP_data$spcA, ncomp = 2)
-cv_PLSR_PP3 = cv_plsr_model(PP_data, PP_data$spcAmovav, ncomp = 8)
-cv_PLSR_PP4 = cv_plsr_model(PP_raw, PP_raw$spcA, ncomp = 2)
-
-cv_plsr_PPresults = list(cv_PLSR_PP, cv_PLSR_PP2, cv_PLSR_PP3, cv_PLSR_PP4)
-
-for (i in seq_along(cv_plsr_PPresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PPresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PPresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PPresults[[i]]$R2))
-}
-
-
-## polymer-specific external validation
-PLSR_predPP = predict(PLSR_mod_PP, ncomp = 3, newdata = new$spcARmovav)
-PLSR_predPP2 = predict(PLSR_mod_PP2, ncomp = 2, newdata = new$spcA)
-PLSR_predPP3 = predict(PLSR_mod_PP3, ncomp = 8, newdata = new$spcAmovav)
-PLSR_predPP4 = predict(PLSR_mod_PP4, ncomp = 2, newdata = raw_new$spcA)
-
-PP_obs = c(rep(list(new$PP_mg), 3), list(raw_new$PP_mg))
-PP_preds = list(PLSR_predPP, PLSR_predPP2, PLSR_predPP3, PLSR_predPP4)
-
-PP_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, PP_obs, PP_preds)
-
-for (i in seq_along(PP_preds)) {
-    cat(paste0("\n======= MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", PP_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", PP_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", PP_stats["R2", i]))
-}
-
-#==============================================================================#
-
-PLSR_mod_PVC = plsr(MASS_mg ~ spcARmovav,
-                   data = PVC_data,
-                   method = "oscorespls",
-                   ncomp = 50,
-                   validation = "CV")
-
-PLSR_mod_PVC2 = plsr(MASS_mg ~ spcA,
-                    data = PVC_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_mod_PVC3 = plsr(MASS_mg ~ spcAmovav,
-                    data = PVC_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_mod_PVC4 = plsr(MASS_mg ~ spcA,
-                    data = PVC_raw,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-which.min(RMSEP(PLSR_mod_PVC)$val["CV", , ][-1]) # 36
-which.min(RMSEP(PLSR_mod_PVC2)$val["CV", , ][-1]) # 15
-which.min(RMSEP(PLSR_mod_PVC3)$val["CV", , ][-1]) # 10
-which.min(RMSEP(PLSR_mod_PVC4)$val["CV", , ][-1]) # 4
-
-## polymer-specific CV
-cv_PLSR_PVC = cv_plsr_model(PVC_data, PVC_data$spcARmovav, ncomp = 3)
-cv_PLSR_PVC2 = cv_plsr_model(PVC_data, PVC_data$spcA, ncomp = 2)
-cv_PLSR_PVC3 = cv_plsr_model(PVC_data, PVC_data$spcAmovav, ncomp = 8)
-cv_PLSR_PVC4 = cv_plsr_model(PVC_raw, PVC_raw$spcA, ncomp = 2)
-
-cv_plsr_PVCresults = list(cv_PLSR_PVC, cv_PLSR_PVC2, cv_PLSR_PVC3, cv_PLSR_PVC4)
-
-for (i in seq_along(cv_plsr_PVCresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PVCresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PVCresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PVCresults[[i]]$R2))
-}
-
-
-## polymer-specific external validation
-PLSR_predPVC = predict(PLSR_mod_PVC, ncomp = 36, newdata = new$spcARmovav)
-PLSR_predPVC2 = predict(PLSR_mod_PVC2, ncomp = 15, newdata = new$spcA)
-PLSR_predPVC3 = predict(PLSR_mod_PVC3, ncomp = 10, newdata = new$spcAmovav)
-PLSR_predPVC4 = predict(PLSR_mod_PVC4, ncomp = 4, newdata = raw_new$spcA)
-
-PVC_obs = c(rep(list(new$PVC_mg), 3), list(raw_new$PVC_mg))
-PVC_preds = list(PLSR_predPVC, PLSR_predPVC2, PLSR_predPVC3, PLSR_predPVC4)
-
-PVC_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, PVC_obs, PVC_preds)
-
-for (i in seq_along(PVC_preds)) {
-    cat(paste0("\n======= MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", PVC_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", PVC_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", PVC_stats["R2", i]))
-}
-
-#==============================================================================#
-
-PLSR_mod_PET = plsr(MASS_mg ~ spcARmovav,
-                    data = PET_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_mod_PET2 = plsr(MASS_mg ~ spcA,
-                     data = PET_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_mod_PET3 = plsr(MASS_mg ~ spcAmovav,
-                     data = PET_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_mod_PET4 = plsr(MASS_mg ~ spcA,
-                     data = PET_raw,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-which.min(RMSEP(PLSR_mod_PET)$val["CV", , ][-1]) # 4
-which.min(RMSEP(PLSR_mod_PET2)$val["CV", , ][-1]) # 7
-which.min(RMSEP(PLSR_mod_PET3)$val["CV", , ][-1]) # 6
-which.min(RMSEP(PLSR_mod_PET4)$val["CV", , ][-1]) # 8
-
-## polymer-specific CV
-cv_PLSR_PET = cv_plsr_model(PET_data, PET_data$spcARmovav, ncomp = 3)
-cv_PLSR_PET2 = cv_plsr_model(PET_data, PET_data$spcA, ncomp = 2)
-cv_PLSR_PET3 = cv_plsr_model(PET_data, PET_data$spcAmovav, ncomp = 8)
-cv_PLSR_PET4 = cv_plsr_model(PET_raw, PET_raw$spcA, ncomp = 2)
-
-cv_plsr_PETresults = list(cv_PLSR_PET, cv_PLSR_PET2, cv_PLSR_PET3, cv_PLSR_PET4)
-
-for (i in seq_along(cv_plsr_PETresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PETresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PETresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PETresults[[i]]$R2))
-}
-
-
-## polymer-specific external validation
-PLSR_predPET = predict(PLSR_mod_PET, ncomp = 4, newdata = new$spcARmovav)
-PLSR_predPET2 = predict(PLSR_mod_PET2, ncomp = 7, newdata = new$spcA)
-PLSR_predPET3 = predict(PLSR_mod_PET3, ncomp = 6, newdata = new$spcAmovav)
-PLSR_predPET4 = predict(PLSR_mod_PET4, ncomp = 8, newdata = raw_new$spcA)
-
-PET_obs = c(rep(list(new$PET_mg), 3), list(raw_new$PET_mg))
-PET_preds = list(PLSR_predPET, PLSR_predPET2, PLSR_predPET3, PLSR_predPET4)
-
-PET_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, PET_obs, PET_preds)
-
-for (i in seq_along(PET_preds)) {
-    cat(paste0("\n======= MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", PET_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", PET_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", PET_stats["R2", i]))
-}
-
-#==============================================================================#
-
-PLSR_mod_PE = plsr(MASS_mg ~ spcARmovav,
-                    data = PE_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_mod_PE2 = plsr(MASS_mg ~ spcA,
-                     data = PE_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_mod_PE3 = plsr(MASS_mg ~ spcAmovav,
-                     data = PE_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_mod_PE4 = plsr(MASS_mg ~ spcA,
-                     data = PE_raw,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-which.min(RMSEP(PLSR_mod_PE)$val["CV", , ][-1]) # 5
-which.min(RMSEP(PLSR_mod_PE2)$val["CV", , ][-1]) # 1
-which.min(RMSEP(PLSR_mod_PE3)$val["CV", , ][-1]) # 1
-which.min(RMSEP(PLSR_mod_PE4)$val["CV", , ][-1]) # 1
-
-## polymer-specific CV
-cv_PLSR_PE = cv_plsr_model(PE_data, PE_data$spcARmovav, ncomp = 3)
-cv_PLSR_PE2 = cv_plsr_model(PE_data, PE_data$spcA, ncomp = 2)
-cv_PLSR_PE3 = cv_plsr_model(PE_data, PE_data$spcAmovav, ncomp = 8)
-cv_PLSR_PE4 = cv_plsr_model(PE_raw, PE_raw$spcA, ncomp = 2)
-
-cv_plsr_PEresults = list(cv_PLSR_PE, cv_PLSR_PE2, cv_PLSR_PE3, cv_PLSR_PE4)
-
-for (i in seq_along(cv_plsr_PEresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PEresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PEresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PEresults[[i]]$R2))
-}
-
-## polymer-specific external validation
-PLSR_predPE = predict(PLSR_mod_PE, ncomp = 5, newdata = new$spcARmovav)
-PLSR_predPE2 = predict(PLSR_mod_PE2, ncomp = 1, newdata = new$spcA)
-PLSR_predPE3 = predict(PLSR_mod_PE3, ncomp = 1, newdata = new$spcAmovav)
-PLSR_predPE4 = predict(PLSR_mod_PE4, ncomp = 1, newdata = raw_new$spcA)
-
-PE_obs = c(rep(list(new$PE_mg), 3), list(raw_new$PE_mg))
-PE_preds = list(PLSR_predPE, PLSR_predPE2, PLSR_predPE3, PLSR_predPE4)
-
-PE_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, PE_obs, PE_preds)
-
-for (i in seq_along(PE_preds)) {
-    cat(paste0("\n======= MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", PE_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", PE_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", PE_stats["R2", i]))
-}
-
-
-################################################################################
-#                    NIR - SWIR WAVELENGTH RANGE ONLY                          #
-################################################################################
-
-VIS = which(as.numeric(colnames(data$spcA)) < 1000)
-VIS2 = which(as.numeric(colnames(data$spcARmovav)) < 1000)
-
-
-data$NIRspcARmovav = data$spcARmovav[, -VIS2]
-data$NIRspcA = data$spcA[, -VIS]
-data$NIRspcAmovav = data$spcAmovav[, -VIS]
-raw$NIRspcA = raw$spcA[, -VIS]
-
-new$NIRspcARmovav = new$spcARmovav[, -VIS2]
-new$NIRspcA = new$spcA[, -VIS]
-new$NIRspcAmovav = new$spcAmovav[, -VIS]
-raw_new$NIRspcA = raw_new$spcA[,-VIS]
-
-
-set.seed(42)
-
-PLSR_mod_NIR = plsr(MASS_mg ~ NIRspcARmovav,
-                     data = data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_mod_NIR2 = plsr(MASS_mg ~ NIRspcA,
-                      data = data,
-                      method = "oscorespls",
-                      ncomp = 50,
-                      validation = "CV")
-
-PLSR_mod_NIR3 = plsr(MASS_mg ~ NIRspcAmovav,
-                      data = data,
-                      method = "oscorespls",
-                      ncomp = 50,
-                      validation = "CV")
-
-PLSR_mod_NIR4 = plsr(MASS_mg ~ NIRspcA,
-                      data = raw,
-                      method = "oscorespls",
-                      ncomp = 50,
-                      validation = "CV")
-
-par(mfrow = c(2, 2))
-validationplot(PLSR_mod_NIR, val.type = "RMSEP", main = "MODEL 1")
-validationplot(PLSR_mod_NIR2, val.type = "RMSEP", main = "MODEL 2")
-validationplot(PLSR_mod_NIR3, val.type = "RMSEP", main = "MODEL 3")
-validationplot(PLSR_mod_NIR4, val.type = "RMSEP", main = "MODEL 4")
-
-min(RMSEP(PLSR_mod_NIR)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_NIR2)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_NIR3)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_NIR4)$val["CV", ,][-1])
-
-which.min(RMSEP(PLSR_mod_NIR)$val["CV", , ][-1]) # 19
-which.min(RMSEP(PLSR_mod_NIR2)$val["CV", , ][-1]) # 15
-which.min(RMSEP(PLSR_mod_NIR3)$val["CV", , ][-1]) # 18
-which.min(RMSEP(PLSR_mod_NIR4)$val["CV", , ][-1]) # 15
-
-
-# 10-fold cross-validation
-cv_PLSR_NIR = cv_plsr_model(data, data$NIRspcARmovav, ncomp = 19)
-cv_PLSR_NIR2 = cv_plsr_model(data, data$NIRspcA, ncomp = 15)
-cv_PLSR_NIR3 = cv_plsr_model(data, data$NIRspcAmovav, ncomp = 18)
-cv_PLSR_NIR4 = cv_plsr_model(raw, raw$NIRspcA, ncomp = 15)
-
-cv_plsr_NIRresults = list(cv_PLSR_NIR, cv_PLSR_NIR2,
-                          cv_PLSR_NIR3, cv_PLSR_NIR4)
-
-for (i in seq_along(cv_plsr_NIRresults)) {
-    cat(paste0("\n======= PLSR NIR_MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_NIRresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_NIRresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_NIRresults[[i]]$R2))
-}
-
-
-# predicting on new dataset
-PLSR_predNIR = predict(PLSR_mod_NIR, ncomp = 19, newdata = new$NIRspcARmovav)
-PLSR_predNIR2 = predict(PLSR_mod_NIR2, ncomp = 15, newdata = new$NIRspcA)
-PLSR_predNIR3 = predict(PLSR_mod_NIR3, ncomp = 18, newdata = new$NIRspcAmovav)
-PLSR_predNIR4 = predict(PLSR_mod_NIR4, ncomp = 15, newdata = raw_new$NIRspcA)
-
-NIR_obs = c(rep(list(new$MASS_mg), 3), list(raw_new$MASS_mg))
-NIR_preds = list(PLSR_predNIR, PLSR_predNIR2, PLSR_predNIR3, PLSR_predNIR4)
-
-NIR_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, NIR_obs, NIR_preds)
-
-for (i in seq_along(NIR_preds)) {
-    cat(paste0("\n======= MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", NIR_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", NIR_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", NIR_stats["R2", i]))
-}
-
-#==============================================================================#
-#              MODELING FOR SINGLE POLYMERS QUANTIFICATION (NIR)               #
-#==============================================================================#
-
-PLSR_NIR_PP = plsr(MASS_mg ~ NIRspcARmovav,
-                   data = PP_data,
-                   method = "oscorespls",
-                   ncomp = 50,
-                   validation = "CV")
-
-PLSR_NIR_PP2 = plsr(MASS_mg ~ NIRspcA,
-                    data = PP_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_NIR_PP3 = plsr(MASS_mg ~ NIRspcAmovav,
-                    data = PP_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_NIR_PP4 = plsr(MASS_mg ~ NIRspcA,
-                    data = PP_raw,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-which.min(RMSEP(PLSR_NIR_PP)$val["CV", , ][-1]) # 1
-which.min(RMSEP(PLSR_NIR_PP2)$val["CV", , ][-1]) # 10
-which.min(RMSEP(PLSR_NIR_PP3)$val["CV", , ][-1]) # 1
-which.min(RMSEP(PLSR_NIR_PP4)$val["CV", , ][-1]) # 7
-
-## polymer-specific CV
-cv_PLSR_PP_NIR = cv_plsr_model(PP_data, PP_data$NIRspcARmovav, ncomp = 1)
-cv_PLSR_PP_NIR2 = cv_plsr_model(PP_data, PP_data$NIRspcA, ncomp = 10)
-cv_PLSR_PP_NIR3 = cv_plsr_model(PP_data, PP_data$NIRspcAmovav, ncomp = 1)
-cv_PLSR_PP_NIR4 = cv_plsr_model(PP_raw, PP_raw$NIRspcA, ncomp = 7)
-
-cv_plsr_PP_NIRresults = list(cv_PLSR_PP_NIR, cv_PLSR_PP_NIR2,
-                             cv_PLSR_PP_NIR3, cv_PLSR_PP_NIR4)
-
-for (i in seq_along(cv_plsr_PP_NIRresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PP_NIRresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PP_NIRresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PP_NIRresults[[i]]$R2))
-}
-
-
-## external validation
-PLSR_predPP_NIR = predict(PLSR_NIR_PP, ncomp = 1, newdata = new$NIRspcARmovav)
-PLSR_predPP_NIR2 = predict(PLSR_NIR_PP2, ncomp = 10, newdata = new$NIRspcA)
-PLSR_predPP_NIR3 = predict(PLSR_NIR_PP3, ncomp = 1, newdata = new$NIRspcAmovav)
-PLSR_predPP_NIR4 = predict(PLSR_NIR_PP4, ncomp = 7, newdata = raw_new$NIRspcA)
-
-NIR_PP_obs = c(rep(list(new$PP_mg), 3), list(raw_new$PP_mg))
-NIR_PP_preds = list(PLSR_predPP_NIR, PLSR_predPP_NIR2,
-                    PLSR_predPP_NIR3, PLSR_predPP_NIR4)
-
-NIR_PP_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, NIR_PP_obs, NIR_PP_preds)
-
-for (i in seq_along(NIR_PP_preds)) {
-    cat(paste0("\n======= NIR_MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", NIR_PP_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", NIR_PP_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", NIR_PP_stats["R2", i]))
-}
-
-#==============================================================================#
-
-PLSR_NIR_PVC = plsr(MASS_mg ~ NIRspcARmovav,
-                    data = PVC_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_NIR_PVC2 = plsr(MASS_mg ~ NIRspcA,
-                     data = PVC_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_NIR_PVC3 = plsr(MASS_mg ~ NIRspcAmovav,
-                     data = PVC_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_NIR_PVC4 = plsr(MASS_mg ~ NIRspcA,
-                     data = PVC_raw,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-which.min(RMSEP(PLSR_NIR_PVC)$val["CV", , ][-1]) # 3
-which.min(RMSEP(PLSR_NIR_PVC2)$val["CV", , ][-1]) # 14
-which.min(RMSEP(PLSR_NIR_PVC3)$val["CV", , ][-1]) # 7
-which.min(RMSEP(PLSR_NIR_PVC4)$val["CV", , ][-1]) # 16
-
-## polymer-specific CV
-cv_PLSR_PVC_NIR = cv_plsr_model(PVC_data, PVC_data$NIRspcARmovav, ncomp = 3)
-cv_PLSR_PVC_NIR2 = cv_plsr_model(PVC_data, PVC_data$NIRspcA, ncomp = 14)
-cv_PLSR_PVC_NIR3 = cv_plsr_model(PVC_data, PVC_data$NIRspcAmovav, ncomp = 7)
-cv_PLSR_PVC_NIR4 = cv_plsr_model(PVC_raw, PVC_raw$NIRspcA, ncomp = 16)
-
-cv_plsr_PVC_NIRresults = list(cv_PLSR_PVC_NIR, cv_PLSR_PVC_NIR2,
-                              cv_PLSR_PVC_NIR3, cv_PLSR_PVC_NIR4)
-
-for (i in seq_along(cv_plsr_PVC_NIRresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PVC_NIRresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PVC_NIRresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PVC_NIRresults[[i]]$R2))
-}
-
-
-PLSR_predPVC_NIR = predict(PLSR_NIR_PVC, ncomp = 3, newdata = new$NIRspcARmovav)
-PLSR_predPVC_NIR2 = predict(PLSR_NIR_PVC2, ncomp = 14, newdata = new$NIRspcA)
-PLSR_predPVC_NIR3 = predict(PLSR_NIR_PVC3, ncomp = 7, newdata = new$NIRspcAmovav)
-PLSR_predPVC_NIR4 = predict(PLSR_NIR_PVC4, ncomp = 16, newdata = raw_new$NIRspcA)
-
-NIR_PVC_obs = c(rep(list(new$PVC_mg), 3), list(raw_new$PVC_mg))
-NIR_PVC_preds = list(PLSR_predPVC_NIR, PLSR_predPVC_NIR2,
-                     PLSR_predPVC_NIR3, PLSR_predPVC_NIR4)
-
-NIR_PVC_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, NIR_PVC_obs, NIR_PVC_preds)
-
-for (i in seq_along(NIR_PVC_preds)) {
-    cat(paste0("\n======= NIR_MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", NIR_PVC_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", NIR_PVC_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", NIR_PVC_stats["R2", i]))
-}
-
-#==============================================================================#
-
-PLSR_NIR_PET = plsr(MASS_mg ~ NIRspcARmovav,
-                    data = PET_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_NIR_PET2 = plsr(MASS_mg ~ NIRspcA,
-                     data = PET_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_NIR_PET3 = plsr(MASS_mg ~ NIRspcAmovav,
-                     data = PET_data,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-PLSR_NIR_PET4 = plsr(MASS_mg ~ NIRspcA,
-                     data = PET_raw,
-                     method = "oscorespls",
-                     ncomp = 50,
-                     validation = "CV")
-
-which.min(RMSEP(PLSR_NIR_PET)$val["CV", , ][-1]) # 8
-which.min(RMSEP(PLSR_NIR_PET2)$val["CV", , ][-1]) # 9
-which.min(RMSEP(PLSR_NIR_PET3)$val["CV", , ][-1]) # 6
-which.min(RMSEP(PLSR_NIR_PET4)$val["CV", , ][-1]) # 5
-
-## polymer-specific CV
-cv_PLSR_PET_NIR = cv_plsr_model(PET_data, PET_data$NIRspcARmovav, ncomp = 8)
-cv_PLSR_PET_NIR2 = cv_plsr_model(PET_data, PET_data$NIRspcA, ncomp = 9)
-cv_PLSR_PET_NIR3 = cv_plsr_model(PET_data, PET_data$NIRspcAmovav, ncomp = 6)
-cv_PLSR_PET_NIR4 = cv_plsr_model(PET_raw, PET_raw$NIRspcA, ncomp = 5)
-
-cv_plsr_PET_NIRresults = list(cv_PLSR_PET_NIR, cv_PLSR_PET_NIR2,
-                              cv_PLSR_PET_NIR3, cv_PLSR_PET_NIR4)
-
-for (i in seq_along(cv_plsr_PET_NIRresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PET_NIRresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PET_NIRresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PET_NIRresults[[i]]$R2))
-}
-
-
-PLSR_predPET_NIR = predict(PLSR_NIR_PET, ncomp = 8, newdata = new$NIRspcARmovav)
-PLSR_predPET_NIR2 = predict(PLSR_NIR_PET2, ncomp = 9, newdata = new$NIRspcA)
-PLSR_predPET_NIR3 = predict(PLSR_NIR_PET3, ncomp = 6, newdata = new$NIRspcAmovav)
-PLSR_predPET_NIR4 = predict(PLSR_NIR_PET4, ncomp = 5, newdata = raw_new$NIRspcA)
-
-NIR_PET_obs = c(rep(list(new$PET_mg), 3), list(raw_new$PET_mg))
-NIR_PET_preds = list(PLSR_predPET_NIR, PLSR_predPET_NIR2,
-                     PLSR_predPET_NIR3, PLSR_predPET_NIR4)
-
-NIR_PET_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, NIR_PET_obs, NIR_PET_preds)
-
-for (i in seq_along(NIR_PET_preds)) {
-    cat(paste0("\n======= NIR_MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", NIR_PET_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", NIR_PET_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", NIR_PET_stats["R2", i]))
-}
-
-#==============================================================================#
-
-PLSR_NIR_PE = plsr(MASS_mg ~ NIRspcARmovav,
-                   data = PE_data,
-                   method = "oscorespls",
-                   ncomp = 50,
-                   validation = "CV")
-
-PLSR_NIR_PE2 = plsr(MASS_mg ~ NIRspcA,
-                    data = PE_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_NIR_PE3 = plsr(MASS_mg ~ NIRspcAmovav,
-                    data = PE_data,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-PLSR_NIR_PE4 = plsr(MASS_mg ~ NIRspcA,
-                    data = PE_raw,
-                    method = "oscorespls",
-                    ncomp = 50,
-                    validation = "CV")
-
-which.min(RMSEP(PLSR_NIR_PE)$val["CV", , ][-1]) # 6
-which.min(RMSEP(PLSR_NIR_PE2)$val["CV", , ][-1]) # 5
-which.min(RMSEP(PLSR_NIR_PE3)$val["CV", , ][-1]) # 6
-which.min(RMSEP(PLSR_NIR_PE4)$val["CV", , ][-1]) # 2
-
-## polymer-specific CV
-cv_PLSR_PE_NIR = cv_plsr_model(PE_data, PE_data$NIRspcARmovav, ncomp = 6)
-cv_PLSR_PE_NIR2 = cv_plsr_model(PE_data, PE_data$NIRspcA, ncomp = 5)
-cv_PLSR_PE_NIR3 = cv_plsr_model(PE_data, PE_data$NIRspcAmovav, ncomp = 6)
-cv_PLSR_PE_NIR4 = cv_plsr_model(PE_raw, PE_raw$NIRspcA, ncomp = 2)
-
-cv_plsr_PE_NIRresults = list(cv_PLSR_PE_NIR, cv_PLSR_PE_NIR2,
-                             cv_PLSR_PE_NIR3, cv_PLSR_PE_NIR4)
-
-for (i in seq_along(cv_plsr_PE_NIRresults)) {
-    cat(paste0("\n======= PLSR MODEL ", i, " (10-fold CV) =======\n"))
-    cat(sprintf("ME   : %.4f\n", cv_plsr_PE_NIRresults[[i]]$ME))
-    cat(sprintf("RMSE : %.4f\n", cv_plsr_PE_NIRresults[[i]]$RMSE))
-    cat(sprintf("R²   : %.4f\n", cv_plsr_PE_NIRresults[[i]]$R2))
-}
-
-
-PLSR_predPE_NIR = predict(PLSR_NIR_PE, ncomp = 6, newdata = new$NIRspcARmovav)
-PLSR_predPE_NIR2 = predict(PLSR_NIR_PE2, ncomp = 5, newdata = new$NIRspcA)
-PLSR_predPE_NIR3 = predict(PLSR_NIR_PE3, ncomp = 6, newdata = new$NIRspcAmovav)
-PLSR_predPE_NIR4 = predict(PLSR_NIR_PE4, ncomp = 2, newdata = raw_new$NIRspcA)
-
-NIR_PE_obs = c(rep(list(new$PE_mg), 3), list(raw_new$PE_mg))
-NIR_PE_preds = list(PLSR_predPE_NIR, PLSR_predPE_NIR2,
-                    PLSR_predPE_NIR3, PLSR_predPE_NIR4)
-
-NIR_PE_stats = mapply(function(obs, pred) {
-    c(
-        ME   = ME(obs, pred),
-        RMSE = RMSE(obs, pred),
-        R2   = R2(obs, pred)
-    )
-}, NIR_PE_obs, NIR_PE_preds)
-
-for (i in seq_along(NIR_PE_preds)) {
-    cat(paste0("\n======= NIR_MODEL ", i, " =======\n"))
-    cat(sprintf("ME   : %.7f\n", NIR_PE_stats["ME", i]))
-    cat(sprintf("RMSE : %.7f\n", NIR_PE_stats["RMSE", i]))
-    cat(sprintf("R²   : %.7f\n", NIR_PE_stats["R2", i]))
-}
