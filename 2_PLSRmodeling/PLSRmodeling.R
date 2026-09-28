@@ -1,12 +1,14 @@
 require(prospectr)
 require(dplyr)
 require(pls)
+require(ggplot2)
+require(patchwork)
 
 
 # load processed data
 pristine = readRDS("../preprocessed_data/pristine_denoised.rds")
 pristine_raw = readRDS("../raw_spectra/raw_pristine.rds")
-colored = readRDS("../preprocessed_data/pristine_denoised.rds") 
+colored = readRDS("../preprocessed_data/colored_denoised.rds") 
 colored_raw = readRDS("../raw_spectra/raw_colored.rds")
 
 # convert spectra to absorbance
@@ -103,9 +105,9 @@ pristine$strata = interaction(pristine$POLYMER,
                               pristine$MASS_mg, # treatment` flaggin...
                               pristine$SIZE_CODE)
 
-raw$strata = interaction(raw$POLYMER,
-                         raw$MASS_mg,
-                         raw$SIZE_CODE)
+pristine_raw$strata = interaction(pristine_raw$POLYMER,
+                                  pristine_raw$MASS_mg,
+                                  pristine_raw$SIZE_CODE)
 
 set.seed(1)
 
@@ -175,7 +177,7 @@ PLSR_mod_mass4 = plsr(MASS_mg ~ spcARmovav,
                      validation = "CV")
 
 
-# check optima `ncomps` values and its recpective cross-validated RMSEP
+# check optima `ncomps` values and its respective cross-validated RMSEP
 RMSEP(PLSR_mod_mass)  # 7 comps...
 RMSEP(PLSR_mod_mass2) # 11 comps...
 RMSEP(PLSR_mod_mass3) # 12 comps...
@@ -463,41 +465,35 @@ for (i in seq_along(cv_plsr_results)) {
 }
 
 
-
-# LAST EDITING: AUGUST 10th 2026 #
-# [...]
-
-
-
-#==============================================================================#
-#                     FULL INTERNAL DATASET TRANING!                           #
-#==============================================================================#
+################################################################################
+#             FULL INTERNAL DATASET TRANING/EXTERNAL VALIDATION                #
+################################################################################
 set.seed(666)
 
 
-## "naive" models
-PLSR_mod_mass = plsr(MASS_mg ~ spcARmovav,
-                     data = data,
+# "naive" models
+PLSR_mod_mass = plsr(MASS_mg ~ spcA,
+                     data = pristine_raw,
                      method = "oscorespls",
-                     ncomp = 20,
+                     ncomp = 50,
                      validation = "CV")
 
 PLSR_mod_mass2 = plsr(MASS_mg ~ spcA,
-                      data = data,
+                      data = pristine,
                       method = "oscorespls",
-                      ncomp = 11,
+                      ncomp = 50,
                       validation = "CV")
 
 PLSR_mod_mass3 = plsr(MASS_mg ~ spcAmovav,
-                      data = data,
+                      data = pristine,
                       method = "oscorespls",
-                      ncomp = 12,
+                      ncomp = 50,
                       validation = "CV")
 
-PLSR_mod_mass4 = plsr(MASS_mg ~ spcA,
-                      data = raw,
+PLSR_mod_mass4 = plsr(MASS_mg ~ spcARmovav,
+                      data = pristine,
                       method = "oscorespls",
-                      ncomp = 7,
+                      ncomp = 50,
                       validation = "CV")
 
 par(mfrow = c(2, 2))
@@ -516,13 +512,14 @@ which.min(RMSEP(PLSR_mod_mass2)$val["CV", , ][-1])
 which.min(RMSEP(PLSR_mod_mass3)$val["CV", , ][-1])
 which.min(RMSEP(PLSR_mod_mass4)$val["CV", , ][-1])
 
-# predicting on new dataset
-PLSR_predNew = predict(PLSR_mod_mass, ncomp = 20, newdata = new$spcARmovav)
-PLSR_predNew2 = predict(PLSR_mod_mass2, ncomp = 11, newdata = new$spcA)
-PLSR_predNew3 = predict(PLSR_mod_mass3, ncomp = 12, newdata = new$spcAmovav)
-PLSR_predNew4 = predict(PLSR_mod_mass4, ncomp = 7, newdata = raw_new$spcA)
 
-external_obs = c(rep(list(new$MASS_mg), 3), list(raw_new$MASS_mg))
+## predicting on new dataset
+PLSR_predNew = predict(PLSR_mod_mass, ncomp = 7, newdata = colored_raw$spcA)
+PLSR_predNew2 = predict(PLSR_mod_mass2, ncomp = 11, newdata = colored$spcA)
+PLSR_predNew3 = predict(PLSR_mod_mass3, ncomp = 12, newdata = colored$spcAmovav)
+PLSR_predNew4 = predict(PLSR_mod_mass4, ncomp = 20, newdata = colored$spcARmovav)
+
+external_obs = c(list(raw_new$MASS_mg), rep(list(new$MASS_mg), 3))
 external_preds = list(PLSR_predNew, PLSR_predNew2, PLSR_predNew3, PLSR_predNew4)
 
 external_stats = mapply(function(obs, pred) {
@@ -540,99 +537,195 @@ for (i in seq_along(external_preds)) {
     cat(sprintf("R²   : %.7f\n", external_stats["R2", i]))
 }
 
-## "tuned-on-external" models
-PLSR_mod_leak = plsr(MASS_mg ~ spcARmovav,
-                     data = data,
-                     method = "oscorespls",
-                     ncomp = 6,
-                     validation = "CV")
 
-PLSR_mod_leak2 = plsr(MASS_mg ~ spcA,
-                      data = data,
-                      method = "oscorespls",
-                      ncomp = 12,
-                      validation = "CV")
+################################################################################
+#                            TUNED EXTERNAL VALIDATION                         #
+################################################################################
+set.seed(42)
 
-PLSR_mod_leak3 = plsr(MASS_mg ~ spcAmovav,
-                      data = data,
-                      method = "oscorespls",
-                      ncomp = 6,
-                      validation = "CV")
 
-PLSR_mod_leak4 = plsr(MASS_mg ~ spcA,
-                      data = raw,
+colored$strata = interaction(colored$MASS_mg,
+                             colored$SIZE_CODE)
+
+colored1 = colored |> 
+    group_by(strata) |> 
+    sample_frac(0.5)
+
+colored2 = colored |> 
+    filter(!(SAMPLE_ID %in% colored1$SAMPLE_ID))
+
+raw_colored$strata = interaction(raw_colored$MASS_mg,
+                                 raw_colored$SIZE_CODE)
+
+
+raw_colored1 = raw_colored |> 
+    group_by(strata) |> 
+    sample_frac(0.5)
+
+
+raw_colored2 = raw_colored |> 
+    filter(!(SAMPLE_ID %in% raw_colored1$SAMPLE_ID))
+
+
+# hyperparameter optimization test ============================================#
+evaluate_ncomp = function(model, newdata, obs, grid){
+    
+    out = lapply(grid, function(nc){
+        
+        pred = predict(model, ncomp = nc, newdata = newdata)
+        pred = as.vector(pred)
+        
+        c(ncomp = nc,
+          ME    = ME(obs, pred),
+          RMSE  = RMSE(obs, pred),
+          R2    = R2(obs, pred))
+    })
+    
+    as.data.frame(do.call(rbind, out))
+}
+
+grid = 1:30
+
+res_M1_ext = evaluate_ncomp(model = PLSR_mod_mass,
+                            newdata = raw_colored1$spcA,
+                            obs = raw_colored1$MASS_mg,
+                            grid = grid)
+res_M1_ext = res_M1_ext |> 
+    mutate(Model = rep("M1", 30), .before = ncomp)
+
+
+res_M2_ext = evaluate_ncomp(model = PLSR_mod_mass2,
+                            newdata = colored1$spcA,
+                            obs = colored1$MASS_mg,
+                            grid = grid)
+res_M2_ext = res_M2_ext |> 
+    mutate(Model = rep("M2", 30), .before = ncomp)
+
+
+res_M3_ext = evaluate_ncomp(model = PLSR_mod_mass3,
+                            newdata = colored1$spcAmovav,
+                            obs = colored1$MASS_mg,
+                            grid = grid)
+res_M3_ext = res_M3_ext |> 
+    mutate(Model = rep("M3", 30), .before = ncomp)
+
+
+res_M4_ext = evaluate_ncomp(model = PLSR_mod_mass4,
+                            newdata = colored1$spcARmovav,
+                            obs = colored1$MASS_mg,
+                            grid = grid)
+res_M4_ext = res_M4_ext |> 
+    mutate(Model = rep("M4", 30), .before = ncomp)
+
+
+results = rbind(res_M1_ext, res_M2_ext,
+                res_M3_ext, res_M4_ext,
+                make.row.names = F)
+
+
+## check optima parameters
+results |> 
+    group_by(Model) |> 
+    filter(RMSE == min(RMSE))
+#==============================================================================#
+
+
+## tuned models
+PLSR_mod_tuned = plsr(MASS_mg ~ spcA,
+                      data = pristine_raw,
                       method = "oscorespls",
                       ncomp = 10,
                       validation = "CV")
 
-# check prediction performance
-PLSR_predLeak = predict(PLSR_mod_leak, ncomp = 6, newdata = new$spcARmovav)
-ME(new$MASS_mg, PLSR_predLeak)
-RMSE(new$MASS_mg, PLSR_predLeak)
-R2(new$MASS_mg, PLSR_predLeak)
+PLSR_mod_tuned2 = plsr(MASS_mg ~ spcA,
+                       data = pristine,
+                       method = "oscorespls",
+                       ncomp = 12,
+                       validation = "CV")
 
-PLSR_predLeak2 = predict(PLSR_mod_leak2, ncomp = 12, newdata = new$spcA)
-ME(new$MASS_mg, PLSR_predLeak2)
-RMSE(new$MASS_mg, PLSR_predLeak2)
-R2(new$MASS_mg, PLSR_predLeak2)
+PLSR_mod_tuned3 = plsr(MASS_mg ~ spcAmovav,
+                       data = pristine,
+                       method = "oscorespls",
+                       ncomp = 6,
+                       validation = "CV")
 
-PLSR_predLeak3 = predict(PLSR_mod_leak3, ncomp = 6, newdata = new$spcAmovav)
-ME(new$MASS_mg, PLSR_predLeak3)
-RMSE(new$MASS_mg, PLSR_predLeak3)
-R2(new$MASS_mg, PLSR_predLeak3)
+PLSR_mod_tuned4 = plsr(MASS_mg ~ spcARmovav,
+                       data = pristine,
+                       method = "oscorespls",
+                       ncomp = 6,
+                       validation = "CV")
 
-PLSR_predLeak4 = predict(PLSR_mod_leak4, ncomp = 10, newdata = raw_new$spcA)
-ME(new$MASS_mg, PLSR_predLeak4)
-RMSE(new$MASS_mg, PLSR_predLeak4)
-R2(new$MASS_mg, PLSR_predLeak4)
+
+## final predictions
+### M1                                       -> pay attention to the ncomp values
+PLSR_pred_tuned = predict(PLSR_mod_tuned, ncomp = 10, newdata = raw_colored2$spcA)
+cat(paste0("\n======= PLSR MODEL 1 (fine-tuned) =======\n",
+           sprintf("ME   : %.2f\n", ME(raw_colored2$MASS_mg, PLSR_pred_tuned)),
+           sprintf("RMSE : %.2f\n", RMSE(raw_colored2$MASS_mg, PLSR_pred_tuned)),
+           sprintf("R²   : %.2f\n", R2(raw_colored2$MASS_mg, PLSR_pred_tuned))
+))
+
+### M2
+PLSR_pred_tuned2 = predict(PLSR_mod_tuned2, ncomp = 12, newdata = colored2$spcA)
+cat(paste0("\n======= PLSR MODEL 2 (fine-tuned) =======\n",
+           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned2)),
+           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned2)),
+           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, PLSR_pred_tuned2))
+))
+
+### M3
+PLSR_pred_tuned3 = predict(PLSR_mod_tuned3, ncomp = 6, newdata = colored2$spcAmovav)
+cat(paste0("\n======= PLSR MODEL 3 (fine-tuned) =======\n",
+           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned3)),
+           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned3)),
+           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, PLSR_pred_tuned3))
+))
+
+### M4
+PLSR_pred_tuned = predict(PLSR_mod_tuned4, ncomp = 6, newdata = colored2$spcARmovav)
+cat(paste0("\n======= PLSR MODEL 4 (fine-tuned) =======\n",
+           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned)),
+           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned)),
+           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, PLSR_pred_tuned))
+))
+
 
 # residual visualization
-residLEAK = PLSR_predLeak - new$MASS_mg
-residLEAK2 = PLSR_predLeak2 - new$MASS_mg
-residLEAK3 = PLSR_predLeak3 - new$MASS_mg
-residLEAK4 = PLSR_predLeak4 - raw_new$MASS_mg
+residTUNED = PLSR_pred_tuned - raw_new2$MASS_mg
+residTUNED2 = PLSR_pred_tuned2 - new2$MASS_mg
+residTUNED3 = PLSR_pred_tuned3 - new2$MASS_mg
+residTUNED4 = PLSR_pred_tuned4 - new2$MASS_mg
 
-residLEAKlog = log(PLSR_predLeak) - log(new$MASS_mg)
-residLEAKlog2 = log(PLSR_predLeak2) - log(new$MASS_mg)
-residLEAKlog3 = log(PLSR_predLeak3) - log(new$MASS_mg)
-residLEAKlog4 = log(PLSR_predLeak4) - log(raw_new$MASS_mg)
+residTUNEDlog = log(PLSR_pred_tuned) - log(raw_new2$MASS_mg)
+residTUNEDlog2 = log(PLSR_pred_tuned2) - log(new2$MASS_mg)
+residTUNEDlog3 = log(PLSR_pred_tuned3) - log(new2$MASS_mg)
+residTUNEDlog4 = log(PLSR_pred_tuned4) - log(new2$MASS_mg)
 
-# ggplot(new, aes(x = factor(MASS_mg), y = residLEAK2)) +
-#     geom_boxplot() +
-#     labs(title = "MODEL 2",
-#          x = "Mass (mg)",
-#          y = "Residuals")
-# 
-# ggplot(new, aes(x = factor(MASS_mg), y = residLEAKlog4)) +
-#     geom_boxplot() +
-#     labs(title = "MODEL 2",
-#          x = "Mass (mg)",
-#          y = "Relative residuals")
 
-# data frame for each model, ensuring the correct 'Observed_Mass' is used
 df_m1 = data.frame(
     Model = "M1 (Raw data)",
-    Observed_Mass = raw_new$MASS_mg, # M1 uses raw_new
-    Residual = residLEAK4  # M1 = residLEAK4
+    Observed_Mass = raw_new2$MASS_mg, # M1 uses raw_new
+    Residual = as.vector(residTUNED4)
 )
 
 df_m2 = data.frame(
     Model = "M2 (Minimal preprocessing)",
-    Observed_Mass = new$MASS_mg, # M2 uses new
-    Residual = residLEAK2
+    Observed_Mass = new2$MASS_mg, # M2 uses new
+    Residual = as.vector(residTUNED2)
 )
 
 df_m3 = data.frame(
     Model = "M3 (Intermediate preprocessing)",
-    Observed_Mass = new$MASS_mg, # M3 uses new
-    Residual = residLEAK3
+    Observed_Mass = new2$MASS_mg, # M3 uses new
+    Residual = as.vector(residTUNED3)
 )
 
 df_m4 = data.frame(
     Model = "M4 (Full preprocessing)",
-    Observed_Mass = raw_new$MASS_mg, # M4 uses raw_new
-    Residual = residLEAK  # M4 = residLEAK
+    Observed_Mass = new2$MASS_mg, # M4 uses new
+    Residual = as.vector(residTUNED)
 )
+
 
 # combine data frames
 plot_data = bind_rows(df_m1, df_m2, df_m3, df_m4)
@@ -642,83 +735,71 @@ model_order = c("M1 (Raw data)", "M2 (Minimal preprocessing)",
                 "M3 (Intermediate preprocessing)", "M4 (Full preprocessing)")
 plot_data$Model = factor(plot_data$Model, levels = model_order)
 
-plot_data_long = plot_data  |> 
-    pivot_longer(
-        cols = c(MASS_mg.10.comps, MASS_mg.12.comps, MASS_mg.6.comps),
-        names_to = "Model_Type", 
-        values_to = "Residual"
-    )  |> 
-    filter(!is.na(Residual))
-
 # combined boxplot
-res = ggplot(plot_data_long, aes(x = factor(Observed_Mass), y = Residual)) +
+res = ggplot(plot_data, aes(x = factor(Observed_Mass), y = Residual)) +
     geom_boxplot(outlier.size = 0.8) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "red", alpha = 0.7) +
     facet_wrap(~ Model, ncol = 2) +
     labs(
         x = NULL,
         y = "Residuals (Predicted - Observed Mass)",
-        title = NULL
-    ) +
-    theme(axis.text.x = element_blank(),
-          axis.ticks.x = element_blank())
+        title = NULL) +
+    theme(axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 12),
+          strip.text = element_text(size = 11),
+          axis.title.y = element_text(size = 13))
 
-#===============================================================================
 
 # data frames for relative residuals (log scale)
 df_m1_log = data.frame(
     Model = "M1 (Raw data)",
-    Observed_Mass = raw_new$MASS_mg,
-    Relative_Residual = residLEAKlog4  # M1 = residLEAKlog4
+    Observed_Mass = raw_new2$MASS_mg,
+    Relative_Residual = as.vector(residTUNEDlog4)  # M1 = residTUNEDlog
 )
 
 df_m2_log = data.frame(
     Model = "M2 (Minimal preprocessing)", 
-    Observed_Mass = new$MASS_mg,
-    Relative_Residual = residLEAKlog2
+    Observed_Mass = new2$MASS_mg,
+    Relative_Residual = as.vector(residTUNEDlog2)
 )
 
 df_m3_log = data.frame(
     Model = "M3 (Intermediate preprocessing)",
-    Observed_Mass = new$MASS_mg, 
-    Relative_Residual = residLEAKlog3
+    Observed_Mass = new2$MASS_mg, 
+    Relative_Residual = as.vector(residTUNEDlog3)
 )
 
 df_m4_log = data.frame(
     Model = "M4 (Full preprocessing)",
-    Observed_Mass = raw_new$MASS_mg,
-    Relative_Residual = residLEAKlog  # M4 = residLEAKlog
+    Observed_Mass = new2$MASS_mg,
+    Relative_Residual = as.vector(residTUNEDlog)  # M4 = residTUNEDlog4
 )
 
 # combine and process
 plot_data_log = bind_rows(df_m1_log, df_m2_log, df_m3_log, df_m4_log)
 
-# reshape from wide to long format
-plot_data_log_long = plot_data_log |> 
-    pivot_longer(
-        cols = starts_with("MASS_mg"),  # Adjust if column names differ
-        names_to = "Model_Type", 
-        values_to = "Relative_Residual"
-    ) |> 
-    filter(!is.na(Relative_Residual))
-
 # set factor order
 model_order = c("M1 (Raw data)", "M2 (Minimal preprocessing)",
                 "M3 (Intermediate preprocessing)", "M4 (Full preprocessing)")
-plot_data_log_long$Model = factor(plot_data_log_long$Model, levels = model_order)
+
 
 # relative residuals plot
-res2 = ggplot(plot_data_log_long, aes(x = factor(Observed_Mass), y = Relative_Residual)) +
+res2 = ggplot(plot_data_log, aes(x = factor(Observed_Mass), y = Relative_Residual)) +
     geom_boxplot(outlier.size = 0.8) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "red", alpha = 0.7) +
     facet_wrap(~ Model, ncol = 2) +
     labs(
         x = "Mass (mg)",
         y = "Relative Residuals [log(Predicted) - log(Observed)]",
-        title = NULL)
+        title = NULL) +
+    theme(axis.text.x = element_text(size = 13),
+          axis.text.y = element_text(size = 12),
+          strip.text = element_text(size = 11),
+          axis.title.x = element_text(size = 15),
+          axis.title.y = element_text(size = 13))
 
-require(patchwork)
 
 res / res2 + plot_annotation(tag_levels = 'a',
                              tag_prefix = '(',
-                             tag_suffix = ')')
+                             tag_suffix = ')') &
+    theme(plot.tag = element_text(size = 22))
