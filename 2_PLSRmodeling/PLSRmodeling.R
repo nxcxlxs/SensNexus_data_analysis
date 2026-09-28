@@ -608,6 +608,7 @@ results = rbind(res_M1_ext, res_M2_ext,
 
 
 ## check optima parameters
+best_nc =
 results |> 
     group_by(Model) |> 
     filter(RMSE == min(RMSE))
@@ -618,31 +619,33 @@ results |>
 PLSR_mod_tuned = plsr(MASS_mg ~ spcA,
                       data = pristine_raw,
                       method = "oscorespls",
-                      ncomp = 10,
+                      ncomp = best_nc$ncomp[1],
                       validation = "CV")
 
 PLSR_mod_tuned2 = plsr(MASS_mg ~ spcA,
                        data = pristine,
                        method = "oscorespls",
-                       ncomp = 12,
+                       ncomp = best_nc$ncomp[2],
                        validation = "CV")
 
 PLSR_mod_tuned3 = plsr(MASS_mg ~ spcAmovav,
                        data = pristine,
                        method = "oscorespls",
-                       ncomp = 6,
+                       ncomp = best_nc$ncomp[3],
                        validation = "CV")
 
 PLSR_mod_tuned4 = plsr(MASS_mg ~ spcARmovav,
                        data = pristine,
                        method = "oscorespls",
-                       ncomp = 6,
+                       ncomp = best_nc$ncomp[4],
                        validation = "CV")
 
 
 ## final predictions
-### M1                                       -> pay attention to the ncomp values
-PLSR_pred_tuned = predict(PLSR_mod_tuned, ncomp = 10, newdata = colored_raw2$spcA)
+### M1
+PLSR_pred_tuned = predict(PLSR_mod_tuned,
+                          ncomp = best_nc$ncomp[1],
+                          newdata = colored_raw2$spcA)
 cat(paste0("\n======= PLSR MODEL 1 (fine-tuned) =======\n",
            sprintf("ME   : %.2f\n", ME(colored_raw2$MASS_mg, PLSR_pred_tuned)),
            sprintf("RMSE : %.2f\n", RMSE(colored_raw2$MASS_mg, PLSR_pred_tuned)),
@@ -650,7 +653,9 @@ cat(paste0("\n======= PLSR MODEL 1 (fine-tuned) =======\n",
 ))
 
 ### M2
-PLSR_pred_tuned2 = predict(PLSR_mod_tuned2, ncomp = 12, newdata = colored2$spcA)
+PLSR_pred_tuned2 = predict(PLSR_mod_tuned2,
+                           ncomp = best_nc$ncomp[2],
+                           newdata = colored2$spcA)
 cat(paste0("\n======= PLSR MODEL 2 (fine-tuned) =======\n",
            sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned2)),
            sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned2)),
@@ -658,7 +663,9 @@ cat(paste0("\n======= PLSR MODEL 2 (fine-tuned) =======\n",
 ))
 
 ### M3
-PLSR_pred_tuned3 = predict(PLSR_mod_tuned3, ncomp = 6, newdata = colored2$spcAmovav)
+PLSR_pred_tuned3 = predict(PLSR_mod_tuned3,
+                           ncomp = best_nc$ncomp[3],
+                           newdata = colored2$spcAmovav)
 cat(paste0("\n======= PLSR MODEL 3 (fine-tuned) =======\n",
            sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned3)),
            sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned3)),
@@ -666,7 +673,9 @@ cat(paste0("\n======= PLSR MODEL 3 (fine-tuned) =======\n",
 ))
 
 ### M4
-PLSR_pred_tuned4 = predict(PLSR_mod_tuned4, ncomp = 6, newdata = colored2$spcARmovav)
+PLSR_pred_tuned4 = predict(PLSR_mod_tuned4,
+                           ncomp = best_nc$ncomp[4],
+                           newdata = colored2$spcARmovav)
 cat(paste0("\n======= PLSR MODEL 4 (fine-tuned) =======\n",
            sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned4)),
            sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned4)),
@@ -761,10 +770,6 @@ df_m4_log = data.frame(
 
 # combine and process
 plot_data_log = bind_rows(df_m1_log, df_m2_log, df_m3_log, df_m4_log)
-
-# set factor order
-model_order = c("M1 (Raw data)", "M2 (Minimal preprocessing)",
-                "M3 (Intermediate preprocessing)", "M4 (Full preprocessing)")
 
 
 # relative residuals plot
