@@ -74,7 +74,7 @@ colored$spcAR = resample(colored$spcA,
 colored$spcARmovav = movav(standardNormalVariate(colored$spcAR), w = 11)
 
 
-## visualize diferences (e.g., pristine raw vs. full preprocessing)============#
+## visualize differences (e.g., pristine raw vs. full preprocessing)============#
 par(mfrow = c(1, 2))
 
 matplot(colnames(pristine_raw$spcA),
@@ -241,7 +241,7 @@ abline(h = min(RMSEP(PLSR_mod_mass3)$val["CV", ,][-1]),
        col = adjustcolor("darkgreen", alpha.f = 0.6))
 
 ### M4
-validationplot(PLSR_mod_mass,
+validationplot(PLSR_mod_mass4,
                val.type = "RMSEP",
                main = "MODEL 4",
                cex.main = 2,
@@ -275,7 +275,7 @@ legend("bottom",
 par(mfrow = c(2, 2))
 
 plot(as.numeric(colnames(pristine_raw$spcA)),
-     PLSR_mod_mass$coefficients[,1,10],
+     PLSR_mod_mass$coefficients[,1,7],
      main = "Model 1",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -284,7 +284,7 @@ plot(as.numeric(colnames(pristine_raw$spcA)),
 grid()
 
 plot(as.numeric(colnames(pristine$spcA)),
-     PLSR_mod_mass2$coefficients[,1,10],
+     PLSR_mod_mass2$coefficients[,1,11],
      main = "Model 2",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -293,7 +293,7 @@ plot(as.numeric(colnames(pristine$spcA)),
 grid()
 
 plot(as.numeric(colnames(pristine$spcAmovav)),
-     PLSR_mod_mass3$coefficients[,1,10],
+     PLSR_mod_mass3$coefficients[,1,12],
      main = "Model 3",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -302,7 +302,7 @@ plot(as.numeric(colnames(pristine$spcAmovav)),
 grid()
 
 plot(as.numeric(colnames(pristine$spcARmovav)),
-     PLSR_mod_mass4$coefficients[,1,10],
+     PLSR_mod_mass4$coefficients[,1,20],
      main = "Model 4",
      type = "l",
      xlab = "Wavelength (nm)",
@@ -324,22 +324,22 @@ PLSR_predV3 = predict(PLSR_mod_mass3, ncomp = 12, newdata = datV$spcAmovav)
 PLSR_predV4 = predict(PLSR_mod_mass4, ncomp = 20, newdata = datV$spcARmovav)
 
 
-# plots
-plot(log(datC$MASS_mg), log(PLSR_predC),
-     main = "Calibration", 
-     xlab = "Observed",
-     ylab = "Predicted",
-     pch = 16,
-     ylim = c(0, 10))
-abline(0, 1)
-
-plot(log(datV$MASS_mg), log(PLSR_predV),
-     main ="Validation",
-     xlab = "Observed",
-     ylab = "Predicted",
-     pch = 16,
-     ylim = c(0, 10))
-abline(0, 1)
+# # plots
+# plot(log(datC$MASS_mg), log(PLSR_predC),
+#      main = "Calibration", 
+#      xlab = "Observed",
+#      ylab = "Predicted",
+#      pch = 16,
+#      ylim = c(0, 10))
+# abline(0, 1)
+# 
+# plot(log(datV$MASS_mg), log(PLSR_predV),
+#      main ="Validation",
+#      xlab = "Observed",
+#      ylab = "Predicted",
+#      pch = 16,
+#      ylim = c(0, 10))
+# abline(0, 1)
 
 
 # set validation statistics ===================================================#
@@ -362,9 +362,9 @@ R2 = function(obs, pred){
 
 # evaluate quality of predictions
 ## observed responses
-calib_obs = c(rep(list(datC$MASS_mg), 3), list(rawC$MASS_mg))
+calib_obs = c(list(rawC$MASS_mg), rep(list(datC$MASS_mg), 3))
 
-valid_obs = c(rep(list(datV$MASS_mg), 3), list(rawV$MASS_mg))
+valid_obs = c(list(rawV$MASS_mg), rep(list(datV$MASS_mg), 3))
 
 ## group calibration predictions
 calib_preds = list(PLSR_predC, PLSR_predC2, PLSR_predC3, PLSR_predC4)
@@ -424,8 +424,8 @@ cv_plsr_model = function(data, spc_matrix, ncomp, nfolds = 4, seed = 999) {
                           pred = NA)
     
     for (i in 1:nfolds) {
-        train = pristine[data$foldCV != i, ]
-        valid = pristine[data$foldCV == i, ]
+        train = data[data$foldCV != i, ]
+        valid = data[data$foldCV == i, ]
         
         train_spc = spc_matrix[data$foldCV != i, ]
         valid_spc = spc_matrix[data$foldCV == i, ]
@@ -466,7 +466,7 @@ for (i in seq_along(cv_plsr_results)) {
 
 
 ################################################################################
-#             FULL INTERNAL DATASET TRANING/EXTERNAL VALIDATION                #
+#            FULL INTERNAL DATASET TRAINING/EXTERNAL VALIDATION                #
 ################################################################################
 set.seed(666)
 
@@ -496,22 +496,6 @@ PLSR_mod_mass4 = plsr(MASS_mg ~ spcARmovav,
                       ncomp = 50,
                       validation = "CV")
 
-par(mfrow = c(2, 2))
-validationplot(PLSR_mod_mass, val.type = "RMSEP", main = "MODEL 1")
-validationplot(PLSR_mod_mass2, val.type = "RMSEP", main = "MODEL 2")
-validationplot(PLSR_mod_mass3, val.type = "RMSEP", main = "MODEL 3")
-validationplot(PLSR_mod_mass4, val.type = "RMSEP", main = "MODEL 4")
-
-min(RMSEP(PLSR_mod_mass)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_mass2)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_mass3)$val["CV", ,][-1])
-min(RMSEP(PLSR_mod_mass4)$val["CV", ,][-1])
-
-which.min(RMSEP(PLSR_mod_mass)$val["CV", , ][-1])
-which.min(RMSEP(PLSR_mod_mass2)$val["CV", , ][-1])
-which.min(RMSEP(PLSR_mod_mass3)$val["CV", , ][-1])
-which.min(RMSEP(PLSR_mod_mass4)$val["CV", , ][-1])
-
 
 ## predicting on new dataset
 PLSR_predNew = predict(PLSR_mod_mass, ncomp = 7, newdata = colored_raw$spcA)
@@ -519,7 +503,7 @@ PLSR_predNew2 = predict(PLSR_mod_mass2, ncomp = 11, newdata = colored$spcA)
 PLSR_predNew3 = predict(PLSR_mod_mass3, ncomp = 12, newdata = colored$spcAmovav)
 PLSR_predNew4 = predict(PLSR_mod_mass4, ncomp = 20, newdata = colored$spcARmovav)
 
-external_obs = c(list(raw_new$MASS_mg), rep(list(new$MASS_mg), 3))
+external_obs = c(list(colored_raw$MASS_mg), rep(list(colored$MASS_mg), 3))
 external_preds = list(PLSR_predNew, PLSR_predNew2, PLSR_predNew3, PLSR_predNew4)
 
 external_stats = mapply(function(obs, pred) {
@@ -554,17 +538,17 @@ colored1 = colored |>
 colored2 = colored |> 
     filter(!(SAMPLE_ID %in% colored1$SAMPLE_ID))
 
-raw_colored$strata = interaction(raw_colored$MASS_mg,
-                                 raw_colored$SIZE_CODE)
+colored_raw$strata = interaction(colored_raw$MASS_mg,
+                                 colored_raw$SIZE_CODE)
 
 
-raw_colored1 = raw_colored |> 
+colored_raw1 = colored_raw |> 
     group_by(strata) |> 
     sample_frac(0.5)
 
 
-raw_colored2 = raw_colored |> 
-    filter(!(SAMPLE_ID %in% raw_colored1$SAMPLE_ID))
+colored_raw2 = colored_raw |> 
+    filter(!(SAMPLE_ID %in% colored_raw1$SAMPLE_ID))
 
 
 # hyperparameter optimization test ============================================#
@@ -587,8 +571,8 @@ evaluate_ncomp = function(model, newdata, obs, grid){
 grid = 1:30
 
 res_M1_ext = evaluate_ncomp(model = PLSR_mod_mass,
-                            newdata = raw_colored1$spcA,
-                            obs = raw_colored1$MASS_mg,
+                            newdata = colored_raw1$spcA,
+                            obs = colored_raw1$MASS_mg,
                             grid = grid)
 res_M1_ext = res_M1_ext |> 
     mutate(Model = rep("M1", 30), .before = ncomp)
@@ -658,11 +642,11 @@ PLSR_mod_tuned4 = plsr(MASS_mg ~ spcARmovav,
 
 ## final predictions
 ### M1                                       -> pay attention to the ncomp values
-PLSR_pred_tuned = predict(PLSR_mod_tuned, ncomp = 10, newdata = raw_colored2$spcA)
+PLSR_pred_tuned = predict(PLSR_mod_tuned, ncomp = 10, newdata = colored_raw2$spcA)
 cat(paste0("\n======= PLSR MODEL 1 (fine-tuned) =======\n",
-           sprintf("ME   : %.2f\n", ME(raw_colored2$MASS_mg, PLSR_pred_tuned)),
-           sprintf("RMSE : %.2f\n", RMSE(raw_colored2$MASS_mg, PLSR_pred_tuned)),
-           sprintf("R²   : %.2f\n", R2(raw_colored2$MASS_mg, PLSR_pred_tuned))
+           sprintf("ME   : %.2f\n", ME(colored_raw2$MASS_mg, PLSR_pred_tuned)),
+           sprintf("RMSE : %.2f\n", RMSE(colored_raw2$MASS_mg, PLSR_pred_tuned)),
+           sprintf("R²   : %.2f\n", R2(colored_raw2$MASS_mg, PLSR_pred_tuned))
 ))
 
 ### M2
@@ -682,48 +666,48 @@ cat(paste0("\n======= PLSR MODEL 3 (fine-tuned) =======\n",
 ))
 
 ### M4
-PLSR_pred_tuned = predict(PLSR_mod_tuned4, ncomp = 6, newdata = colored2$spcARmovav)
+PLSR_pred_tuned4 = predict(PLSR_mod_tuned4, ncomp = 6, newdata = colored2$spcARmovav)
 cat(paste0("\n======= PLSR MODEL 4 (fine-tuned) =======\n",
-           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned)),
-           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned)),
-           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, PLSR_pred_tuned))
+           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, PLSR_pred_tuned4)),
+           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, PLSR_pred_tuned4)),
+           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, PLSR_pred_tuned4))
 ))
 
 
 # residual visualization
-residTUNED = PLSR_pred_tuned - raw_new2$MASS_mg
-residTUNED2 = PLSR_pred_tuned2 - new2$MASS_mg
-residTUNED3 = PLSR_pred_tuned3 - new2$MASS_mg
-residTUNED4 = PLSR_pred_tuned4 - new2$MASS_mg
+residTUNED = PLSR_pred_tuned - colored_raw2$MASS_mg
+residTUNED2 = PLSR_pred_tuned2 - colored2$MASS_mg
+residTUNED3 = PLSR_pred_tuned3 - colored2$MASS_mg
+residTUNED4 = PLSR_pred_tuned4 - colored2$MASS_mg
 
-residTUNEDlog = log(PLSR_pred_tuned) - log(raw_new2$MASS_mg)
-residTUNEDlog2 = log(PLSR_pred_tuned2) - log(new2$MASS_mg)
-residTUNEDlog3 = log(PLSR_pred_tuned3) - log(new2$MASS_mg)
-residTUNEDlog4 = log(PLSR_pred_tuned4) - log(new2$MASS_mg)
+residTUNEDlog = log(PLSR_pred_tuned) - log(colored_raw2$MASS_mg)
+residTUNEDlog2 = log(PLSR_pred_tuned2) - log(colored2$MASS_mg)
+residTUNEDlog3 = log(PLSR_pred_tuned3) - log(colored2$MASS_mg)
+residTUNEDlog4 = log(PLSR_pred_tuned4) - log(colored2$MASS_mg)
 
 
 df_m1 = data.frame(
     Model = "M1 (Raw data)",
-    Observed_Mass = raw_new2$MASS_mg, # M1 uses raw_new
-    Residual = as.vector(residTUNED4)
+    Observed_Mass = colored_raw2$MASS_mg,
+    Residual = as.vector(residTUNED)
 )
 
 df_m2 = data.frame(
     Model = "M2 (Minimal preprocessing)",
-    Observed_Mass = new2$MASS_mg, # M2 uses new
+    Observed_Mass = colored2$MASS_mg,
     Residual = as.vector(residTUNED2)
 )
 
 df_m3 = data.frame(
     Model = "M3 (Intermediate preprocessing)",
-    Observed_Mass = new2$MASS_mg, # M3 uses new
+    Observed_Mass = colored2$MASS_mg,
     Residual = as.vector(residTUNED3)
 )
 
 df_m4 = data.frame(
     Model = "M4 (Full preprocessing)",
-    Observed_Mass = new2$MASS_mg, # M4 uses new
-    Residual = as.vector(residTUNED)
+    Observed_Mass = colored2$MASS_mg,
+    Residual = as.vector(residTUNED4)
 )
 
 
@@ -753,26 +737,26 @@ res = ggplot(plot_data, aes(x = factor(Observed_Mass), y = Residual)) +
 # data frames for relative residuals (log scale)
 df_m1_log = data.frame(
     Model = "M1 (Raw data)",
-    Observed_Mass = raw_new2$MASS_mg,
-    Relative_Residual = as.vector(residTUNEDlog4)  # M1 = residTUNEDlog
+    Observed_Mass = colored_raw2$MASS_mg,
+    Relative_Residual = as.vector(residTUNEDlog)
 )
 
 df_m2_log = data.frame(
     Model = "M2 (Minimal preprocessing)", 
-    Observed_Mass = new2$MASS_mg,
+    Observed_Mass = colored2$MASS_mg,
     Relative_Residual = as.vector(residTUNEDlog2)
 )
 
 df_m3_log = data.frame(
     Model = "M3 (Intermediate preprocessing)",
-    Observed_Mass = new2$MASS_mg, 
+    Observed_Mass = colored2$MASS_mg, 
     Relative_Residual = as.vector(residTUNEDlog3)
 )
 
 df_m4_log = data.frame(
     Model = "M4 (Full preprocessing)",
-    Observed_Mass = new2$MASS_mg,
-    Relative_Residual = as.vector(residTUNEDlog)  # M4 = residTUNEDlog4
+    Observed_Mass = colored2$MASS_mg,
+    Relative_Residual = as.vector(residTUNEDlog4)
 )
 
 # combine and process
