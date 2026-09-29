@@ -403,7 +403,7 @@ dataFULL4 = data.frame(plastMass = data$MASS_mg, data$spcARmovav)
 colnames(dataFULL4) = c("plastMass", paste0("spec.", colnames(data$spcARmovav)))
 
 
-## "naive" models
+# "naive" models
 set.seed(2)
 
 RF_mod_full = randomForest(plastMass ~ .,
@@ -435,20 +435,27 @@ RF_mod_full4 = randomForest(plastMass ~ .,
                             na.action = na.omit)
 
 
-#
-#
-# LAST EDITING 2026-09-29
-#       15h09
-#
-#
-
-
 varImpPlot(RF_mod_full, main = "Model 1")
 varImpPlot(RF_mod_full2, main = "Model 2")
 varImpPlot(RF_mod_full3, main = "Model 3")
 varImpPlot(RF_mod_full4, main = "Model 4")
 
 
+# prepare new data (external validation)
+new_sub = data.frame(plastMass = colored$MASS_mg, colored$spcARmovav)
+colnames(new_sub) = c("plastMass", paste0("spec.", colnames(colored$spcARmovav)))
+
+new_sub2 = data.frame(plastMass = colored$MASS_mg, colored$spcA)
+colnames(new_sub2) = c("plastMass", paste0("spec.", colnames(colored$spcA)))
+
+new_sub3 = data.frame(plastMass = colored$MASS_mg, colored$spcAmovav)
+colnames(new_sub3) = c("plastMass", paste0("spec.", colnames(colored$spcAmovav)))
+
+new_sub4 = data.frame(plastMass = colored_raw$MASS_mg, colored_raw$spcA)
+colnames(new_sub4) = c("plastMass", paste0("spec.", colnames(colored_raw$spcA)))
+
+
+## predicting on new dataset 
 RFpred_full = predict(RF_mod_full, new_sub)
 RFpred_full2 = predict(RF_mod_full2, new_sub2)
 RFpred_full3 = predict(RF_mod_full3, new_sub3)
@@ -473,112 +480,220 @@ for (i in seq_along(external_preds)) {
   cat(sprintf("R²   : %.7f\n", external_stats["R2", i]))
 }
 
-## "tuned-on-external" models
-set.seed(3)
 
-RF_mod_leak = randomForest(plastMass ~ .,
-                           data = dataFULL,
-                           ntree = 100,
-                           mtry = 50,
-                           importance = T,
-                           na.action = na.omit)
+################################################################################
+#                            TUNED EXTERNAL VALIDATION                         #
+################################################################################
+set.seed(23)
 
-RF_mod_leak2 = randomForest(plastMass ~ .,
-                            data = dataFULL2,
-                            ntree = 100,
-                            mtry = 16,
-                            importance = T,
-                            na.action = na.omit)
+colored$strata = interaction(colored$MASS_mg,
+                             colored$SIZE_CODE)
 
-RF_mod_leak3 = randomForest(plastMass ~ .,
-                            data = dataFULL3,
-                            ntree = 100,
-                            mtry = 50,
-                            importance = T,
-                            na.action = na.omit)
+colored1 = colored |> 
+  group_by(strata) |> 
+  sample_frac(0.5)
 
-RF_mod_leak4 = randomForest(plastMass ~ .,
+colored2 = colored |> 
+  filter(!(SAMPLE_ID %in% colored1$SAMPLE_ID))
+
+colored_raw$strata = interaction(colored_raw$MASS_mg,
+                                 colored_raw$SIZE_CODE)
+
+
+colored_raw1 = colored_raw |> 
+  group_by(strata) |> 
+  sample_frac(0.5)
+
+
+colored_raw2 = colored |> 
+  filter(!(SAMPLE_ID %in% colored_raw1$SAMPLE_ID))
+
+
+# prepare external data
+raw_new1_M1 = data.frame(plastMass = colored_raw1$MASS_mg, colored_raw1$spcA)
+colnames(raw_new1_M1) = c("plastMass", paste0("spec.", colnames(colored_raw1$spcA)))
+raw_new2_M1 = data.frame(plastMass = colored_raw2$MASS_mg, colored_raw2$spcA)
+colnames(raw_new2_M1) = c("plastMass", paste0("spec.", colnames(colored_raw2$spcA)))
+
+new1_M2 = data.frame(plastMass = colored1$MASS_mg, colored1$spcA)
+colnames(new1_M2) = c("plastMass", paste0("spec.", colnames(colored1$spcA)))
+new2_M2 = data.frame(plastMass = colored2$MASS_mg, colored2$spcA)
+colnames(new2_M2) = c("plastMass", paste0("spec.", colnames(colored2$spcA)))
+
+new1_M3 = data.frame(plastMass = colored1$MASS_mg, colored1$spcAmovav)
+colnames(new1_M3) = c("plastMass", paste0("spec.", colnames(colored1$spcAmovav)))
+new2_M3 = data.frame(plastMass = colored2$MASS_mg, colored2$spcAmovav)
+colnames(new2_M3) = c("plastMass", paste0("spec.", colnames(colored2$spcAmovav)))
+
+new1_M4 = data.frame(plastMass = colored1$MASS_mg, colored1$spcARmovav)
+colnames(new1_M4) = c("plastMass", paste0("spec.", colnames(colored1$spcARmovav)))
+new2_M4 = data.frame(plastMass = colored2$MASS_mg, colored2$spcARmovav)
+colnames(new2_M4) = c("plastMass", paste0("spec.", colnames(colored2$spcARmovav)))
+
+param_grid_ext = expand.grid(
+  ntree = c(100, 150, 200, 250, 500),
+  mtry = c(5, 10, 20, 30, 40, 50, 55, 60, 70, 80, 90, 95, 100)
+)
+
+spectral_preproc_list_ext = list(
+  M1 = list(train = rawFULL, new = raw_new1_M1),
+  M2 = list(train = dataFULL2, new = new1_M2),
+  M3 = list(train = dataFULL3, new = new1_M3),
+  M4 = list(train = dataFULL, new = new1_M4)
+  )
+
+
+# hyperparameter optimization test ============================================#
+t0 = Sys.time()
+
+ext_results = list()
+
+counter = 1
+
+for (model_name in names(spectral_preproc_list_ext)) {
+  
+  cat("\n======= External tuning for", model_name, "=======\n")
+  
+  train_data = spectral_preproc_list_ext[[model_name]]$train
+  new_data   = spectral_preproc_list_ext[[model_name]]$new
+  
+  for (p in seq_len(nrow(param_grid_ext))) {
+    cat("Combination", p, "of", nrow(param_grid_ext), "fitted\n")
+    
+    ntree_val = param_grid_ext$ntree[p]
+    mtry_val  = param_grid_ext$mtry[p]
+    
+    rf_model = randomForest(
+      plastMass ~ .,
+      data  = train_data,
+      ntree = ntree_val,
+      mtry  = mtry_val
+    )
+    
+    pred_ext = predict(rf_model, new_data)
+    
+    ext_results[[counter]] = data.frame(
+      Model = model_name,
+      ntree = ntree_val,
+      mtry  = mtry_val,
+      ME    = ME(new_data$plastMass, pred_ext),
+      RMSE  = RMSE(new_data$plastMass, pred_ext),
+      R2    = R2(new_data$plastMass, pred_ext)
+    )
+    
+    counter = counter + 1
+  }
+}
+
+ext_results = do.call(rbind, ext_results)
+
+t1 = Sys.time()
+cat("Training time:", round(t1 - t0, 2), "minutes\n")
+
+
+## check optima parameters
+ext_results |> 
+  group_by(Model) |> 
+  filter(RMSE == min(RMSE))
+
+ext_results |>
+  group_by(Model) |>
+  filter(abs(ME) == min(abs(ME)))
+#==============================================================================#
+
+
+## tuned models
+RF_mod_tuned = randomForest(plastMass ~ .,
                             data = rawFULL,
-                            ntree = 100,
-                            mtry = 95, # check higher!!!
+                            ntree = 200,
+                            mtry = 70,
                             importance = T,
                             na.action = na.omit)
 
-RFpred_leak = predict(RF_mod_leak, new_sub)
-RFpred_leak2 = predict(RF_mod_leak2, new_sub2)
-RFpred_leak3 = predict(RF_mod_leak3, new_sub3)
-RFpred_leak4 = predict(RF_mod_leak4, new_sub4)
+RF_mod_tuned2 = randomForest(plastMass ~ .,
+                             data = dataFULL2,
+                             ntree = 250,
+                             mtry = 50,
+                             importance = T,
+                             na.action = na.omit)
 
-leak_obs = list(new_sub$plastMass, new_sub2$plastMass,
-                    new_sub3$plastMass, new_sub4$plastMass)
-leak_preds = list(RFpred_leak, RFpred_leak2, RFpred_leak3, RFpred_leak4)
+RF_mod_tuned3 = randomForest(plastMass ~ .,
+                             data = dataFULL3,
+                             ntree = 150,
+                             mtry = 80,
+                             importance = T,
+                             na.action = na.omit)
 
-leak_stats = mapply(function(obs, pred) {
+RF_mod_tuned4 = randomForest(plastMass ~ .,
+                             data = dataFULL,
+                             ntree = 100,
+                             mtry = 50,
+                             importance = T,
+                             na.action = na.omit)
+
+RFpred_tuned = predict(RF_mod_tuned, raw_new2_M1)
+RFpred_tuned2 = predict(RF_mod_tuned2, new2_M2)
+RFpred_tuned3 = predict(RF_mod_tuned3, new2_M3)
+RFpred_tuned4 = predict(RF_mod_tuned4, new2_M4)
+
+tuned_obs = list(raw_new2_M1$plastMass, new2_M2$plastMass,
+                 new2_M3$plastMass, new2_M4$plastMass)
+tuned_preds = list(RFpred_tuned, RFpred_tuned2, RFpred_tuned3, RFpred_tuned4)
+
+tuned_stats = mapply(function(obs, pred) {
   c(
     ME   = ME(obs, pred),
     RMSE = RMSE(obs, pred),
     R2   = R2(obs, pred)
   )
-}, leak_obs, leak_preds)
+}, tuned_obs, tuned_preds)
 
-for (i in seq_along(leak_preds)) {
+for (i in seq_along(tuned_preds)) {
   cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", leak_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", leak_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", leak_stats["R2", i]))
+  cat(sprintf("ME   : %.7f\n", tuned_stats["ME", i]))
+  cat(sprintf("RMSE : %.7f\n", tuned_stats["RMSE", i]))
+  cat(sprintf("R²   : %.7f\n", tuned_stats["R2", i]))
 }
 
 
 # residual visualization
-residLEAK = RFpred_leak - new$MASS_mg
-residLEAK2 = RFpred_leak2 - new$MASS_mg
-residLEAK3 = RFpred_leak3 - new$MASS_mg
-residLEAK4 = RFpred_leak4 - raw_new$MASS_mg
+residTUNED = RFpred_tuned - colored_raw2$MASS_mg
+residTUNED2 = RFpred_tuned2 - colored2$MASS_mg
+residTUNED3 = RFpred_tuned3 - colored2$MASS_mg
+residTUNED4 = RFpred_tuned4 - colored2$MASS_mg
 
-residLEAKlog = log(RFpred_leak) - log(new$MASS_mg)
-residLEAKlog2 = log(RFpred_leak2) - log(new$MASS_mg)
-residLEAKlog3 = log(RFpred_leak3) - log(new$MASS_mg)
-residLEAKlog4 = log(RFpred_leak4) - log(raw_new$MASS_mg)
+residTUNEDlog = log(RFpred_tuned) - log(colored_raw2$MASS_mg)
+residTUNEDlog2 = log(RFpred_tuned2) - log(colored2$MASS_mg)
+residTUNEDlog3 = log(RFpred_tuned3) - log(colored2$MASS_mg)
+residTUNEDlog4 = log(RFpred_tuned4) - log(colored2$MASS_mg)
 
-ggplot(raw_new, aes(x = factor(MASS_mg), y = residLEAK)) +
-    geom_boxplot() +
-    labs(title = "MODEL 4",
-         x = "Mass (mg)",
-         y = "Residuals")
 
-ggplot(raw_new, aes(x = factor(MASS_mg), y = residLEAKlog)) +
-    geom_boxplot() +
-    labs(title = "MODEL 4",
-         x = "Mass (mg)",
-         y = "Relative residuals")
 
-# data frame for each model, ensuring the correct 'Observed_Mass' is used
 df_m1 = data.frame(
   Model = "M1 (Raw data)",
-  Observed_Mass = raw_new$MASS_mg, # M1 uses raw_new
-  Residual = residLEAK4  # M1 = residLEAK4
+  Observed_Mass = colored_raw2$MASS_mg,
+  Residual = residTUNED
 )
 
 df_m2 = data.frame(
   Model = "M2 (Minimal preprocessing)",
-  Observed_Mass = new$MASS_mg, # M2 uses new
-  Residual = residLEAK2
+  Observed_Mass = colored2$MASS_mg,
+  Residual = residTUNED2
 )
 
 df_m3 = data.frame(
   Model = "M3 (Intermediate preprocessing)",
-  Observed_Mass = new$MASS_mg, # M3 uses new
-  Residual = residLEAK3
+  Observed_Mass = colored2$MASS_mg,
+  Residual = residTUNED3
 )
 
 df_m4 = data.frame(
   Model = "M4 (Full preprocessing)",
-  Observed_Mass = raw_new$MASS_mg, # M4 uses raw_new
-  Residual = residLEAK  # M4 = residLEAK
+  Observed_Mass = colored2$MASS_mg,
+  Residual = residTUNED4
 )
 
 # combine data frames
-require(dplyr)
 plot_data = bind_rows(df_m1, df_m2, df_m3, df_m4)
 
 # model factor in correct order of complexity
@@ -586,8 +701,8 @@ model_order = c("M1 (Raw data)", "M2 (Minimal preprocessing)",
                 "M3 (Intermediate preprocessing)", "M4 (Full preprocessing)")
 plot_data$Model = factor(plot_data$Model, levels = model_order)
 
+
 # combined boxplot
-require(ggplot2)
 res = ggplot(plot_data, aes(x = factor(Observed_Mass), y = Residual)) +
   geom_boxplot(outlier.size = 0.8) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red", alpha = 0.7) +
@@ -595,44 +710,42 @@ res = ggplot(plot_data, aes(x = factor(Observed_Mass), y = Residual)) +
   labs(
     x = NULL,
     y = "Residuals (Predicted - Observed Mass)",
-    title = NULL
-  ) +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
+    title = NULL) +
+  theme(axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(size = 11),
+        axis.title.y = element_text(size = 13))
+#==============================================================================#
 
-#===============================================================================
 
 # data frames for relative residuals (log scale)
 df_m1_log = data.frame(
   Model = "M1 (Raw data)",
-  Observed_Mass = raw_new$MASS_mg,
-  Relative_Residual = residLEAKlog4  # M1 = residLEAKlog4
-)
+  Observed_Mass = colored_raw2$MASS_mg,
+  Relative_Residual = residTUNEDlog
+  )
 
 df_m2_log = data.frame(
   Model = "M2 (Minimal preprocessing)", 
-  Observed_Mass = new$MASS_mg,
-  Relative_Residual = residLEAKlog2
-)
+  Observed_Mass = colored2$MASS_mg,
+  Relative_Residual = residTUNEDlog2
+  )
 
 df_m3_log = data.frame(
   Model = "M3 (Intermediate preprocessing)",
-  Observed_Mass = new$MASS_mg, 
-  Relative_Residual = residLEAKlog3
-)
+  Observed_Mass = colored2$MASS_mg, 
+  Relative_Residual = residTUNEDlog3
+  )
 
 df_m4_log = data.frame(
   Model = "M4 (Full preprocessing)",
-  Observed_Mass = raw_new$MASS_mg,
-  Relative_Residual = residLEAKlog  # M4 = residLEAKlog
-)
+  Observed_Mass = colored2$MASS_mg,
+  Relative_Residual = residTUNEDlog4
+  )
 
 # combine and process
 plot_data_log = bind_rows(df_m1_log, df_m2_log, df_m3_log, df_m4_log)
 
-# set factor order
-model_order = c("M1 (Raw data)", "M2 (Minimal preprocessing)",
-                "M3 (Intermediate preprocessing)", "M4 (Full preprocessing)")
 
 # relative residuals plot
 res2 = ggplot(plot_data_log, aes(x = factor(Observed_Mass), y = Relative_Residual)) +
@@ -642,905 +755,15 @@ res2 = ggplot(plot_data_log, aes(x = factor(Observed_Mass), y = Relative_Residua
   labs(
     x = "Mass (mg)",
     y = "Relative Residuals [log(Predicted) - log(Observed)]",
-    title = NULL)
+    title = NULL) +
+  theme(axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(size = 11),
+        axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 13))
 
-require(patchwork)
 
 res / res2 + plot_annotation(tag_levels = 'a',
                              tag_prefix = '(',
-                             tag_suffix = ')')
-
-################################################################################
-#                   MODELLING FOR SINGLE POLYMERS QUANTIFICATION               #
-################################################################################
-
-# set polymer-specific subsets
-polymers = c("PP", "PVC", "PET", "PE")
-
-for(p in polymers) {
-  assign(paste0(p, "_data"), filter(data, POLYMER == p))
-  assign(paste0(p, "_raw"), filter(raw, POLYMER == p))
-}
-
-new = new |> 
-  mutate(PP_mg = MASS_mg/4,
-         PVC_mg = MASS_mg/4,
-         PET_mg = MASS_mg/4,
-         PE_mg = MASS_mg/4)
-
-raw_new = raw_new |> 
-  mutate(PP_mg = MASS_mg/4,
-         PVC_mg = MASS_mg/4,
-         PET_mg = MASS_mg/4,
-         PE_mg = MASS_mg/4)
-
-t0 = Sys.time()
-
-## PP modeling
-### prepare RF-ready datasets
-PP_data1 = data.frame(plastMass = PP_data$MASS_mg, PP_data$spcARmovav)
-colnames(PP_data1) = c("plastMass", paste0("spec.", colnames(PP_data$spcARmovav)))
-
-PP_data2 = data.frame(plastMass = PP_data$MASS_mg, PP_data$spcA)
-colnames(PP_data2) = c("plastMass", paste0("spec.", colnames(PP_data$spcA)))
-
-PP_data3 = data.frame(plastMass = PP_data$MASS_mg, PP_data$spcAmovav)
-colnames(PP_data3) = c("plastMass", paste0("spec.", colnames(PP_data$spcAmovav)))
-
-PP_dataR = data.frame(plastMass = PP_raw$MASS_mg, PP_raw$spcA)
-colnames(PP_dataR) = c("plastMass", paste0("spec.", colnames(raw$spcA)))
-
-
-set.seed(4)
-
-RF_mod_PP = randomForest(plastMass ~ .,
-                           data = PP_data1,
-                           ntree = 100,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_mod_PP2 = randomForest(plastMass ~ .,
-                            data = PP_data2,
-                            ntree = 100,
-                            mtry = 20,
-                            importance = T,
-                            na.action = na.omit)
-
-RF_mod_PP3 = randomForest(plastMass ~ .,
-                            data = PP_data3,
-                            ntree = 100,
-                            mtry = 10,
-                            importance = T,
-                            na.action = na.omit)
-
-RF_mod_PP4 = randomForest(plastMass ~ .,
-                            data = PP_dataR,
-                            ntree = 100,
-                            mtry = 20,
-                            importance = T,
-                            na.action = na.omit)
-
-RFpred_PP = predict(RF_mod_PP, new_sub)
-RFpred_PP2 = predict(RF_mod_PP2, new_sub2)
-RFpred_PP3 = predict(RF_mod_PP3, new_sub3)
-RFpred_PP4 = predict(RF_mod_PP4, new_sub4)
-
-PP_obs = list(new_sub$plastMass, new_sub2$plastMass,
-             new_sub3$plastMass, new_sub4$plastMass)
-PP_preds = list(RFpred_PP, RFpred_PP2, RFpred_PP3, RFpred_PP4)
-
-PP_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PP_obs, PP_preds)
-
-for (i in seq_along(PP_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PP_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PP_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PP_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PP = cv_random_forest(PP_data, PP_data$spcARmovav)
-cv_RF_PP2 = cv_random_forest(PP_data, PP_data$spcA)
-cv_RF_PP3 = cv_random_forest(PP_data, PP_data$spcAmovav)
-cv_RF_PP4 = cv_random_forest(PP_raw, PP_raw$spcA)
-
-cv_RF_PPresults = list(cv_RF_PP, cv_RF_PP2,
-                  cv_RF_PP3, cv_RF_PP4)
-
-for (i in seq_along(cv_RF_PPresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_RF_PPresults[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_RF_PPresults[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_RF_PPresults[[i]]$R2))
-}
-
-
-#==============================================================================#
-
-## PVC modeling
-### prepare RF-ready datasets
-PVC_data1 = data.frame(plastMass = PVC_data$MASS_mg, PVC_data$spcARmovav)
-colnames(PVC_data1) = c("plastMass", paste0("spec.", colnames(PVC_data$spcARmovav)))
-
-PVC_data2 = data.frame(plastMass = PVC_data$MASS_mg, PVC_data$spcA)
-colnames(PVC_data2) = c("plastMass", paste0("spec.", colnames(PVC_data$spcA)))
-
-PVC_data3 = data.frame(plastMass = PVC_data$MASS_mg, PVC_data$spcAmovav)
-colnames(PVC_data3) = c("plastMass", paste0("spec.", colnames(PVC_data$spcAmovav)))
-
-PVC_dataR = data.frame(plastMass = PVC_raw$MASS_mg, PVC_raw$spcA)
-colnames(PVC_dataR) = c("plastMass", paste0("spec.", colnames(raw$spcA)))
-
-
-RF_mod_PVC = randomForest(plastMass ~ .,
-                          data = PVC_data1,
-                          ntree = 100,
-                          mtry = 10,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_mod_PVC2 = randomForest(plastMass ~ .,
-                           data = PVC_data2,
-                           ntree = 100,
-                           mtry = 20,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_mod_PVC3 = randomForest(plastMass ~ .,
-                           data = PVC_data3,
-                           ntree = 100,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_mod_PVC4 = randomForest(plastMass ~ .,
-                           data = PVC_dataR,
-                           ntree = 100,
-                           mtry = 20,
-                           importance = T,
-                           na.action = na.omit)
-
-RFpred_PVC = predict(RF_mod_PVC, new_sub)
-RFpred_PVC2 = predict(RF_mod_PVC2, new_sub2)
-RFpred_PVC3 = predict(RF_mod_PVC3, new_sub3)
-RFpred_PVC4 = predict(RF_mod_PVC4, new_sub4)
-
-PVC_obs = list(new_sub$plastMass, new_sub2$plastMass,
-               new_sub3$plastMass, new_sub4$plastMass)
-PVC_preds = list(RFpred_PVC, RFpred_PVC2, RFpred_PVC3, RFpred_PVC4)
-
-PVC_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PVC_obs, PVC_preds)
-
-for (i in seq_along(PVC_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PVC_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PVC_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PVC_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PVC = cv_random_forest(PVC_data, PVC_data$spcARmovav)
-cv_RF_PVC2 = cv_random_forest(PVC_data, PVC_data$spcA)
-cv_RF_PVC3 = cv_random_forest(PVC_data, PVC_data$spcAmovav)
-cv_RF_PVC4 = cv_random_forest(PVC_raw, PVC_raw$spcA)
-
-cv_RF_PVCresults = list(cv_RF_PVC, cv_RF_PVC2,
-                  cv_RF_PVC3, cv_RF_PVC4)
-
-for (i in seq_along(cv_RF_PVCresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_RF_PVCresults[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_RF_PVCresults[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_RF_PVCresults[[i]]$R2))
-}
-
-
-#==============================================================================#
-
-## PET modeling
-### prepare RF-ready datasets
-PET_data1 = data.frame(plastMass = PET_data$MASS_mg, PET_data$spcARmovav)
-colnames(PET_data1) = c("plastMass", paste0("spec.", colnames(PET_data$spcARmovav)))
-
-PET_data2 = data.frame(plastMass = PET_data$MASS_mg, PET_data$spcA)
-colnames(PET_data2) = c("plastMass", paste0("spec.", colnames(PET_data$spcA)))
-
-PET_data3 = data.frame(plastMass = PET_data$MASS_mg, PET_data$spcAmovav)
-colnames(PET_data3) = c("plastMass", paste0("spec.", colnames(PET_data$spcAmovav)))
-
-PET_dataR = data.frame(plastMass = PET_raw$MASS_mg, PET_raw$spcA)
-colnames(PET_dataR) = c("plastMass", paste0("spec.", colnames(raw$spcA)))
-
-
-RF_mod_PET = randomForest(plastMass ~ .,
-                          data = PET_data1,
-                          ntree = 100,
-                          mtry = 10,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_mod_PET2 = randomForest(plastMass ~ .,
-                           data = PET_data2,
-                           ntree = 100,
-                           mtry = 20,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_mod_PET3 = randomForest(plastMass ~ .,
-                           data = PET_data3,
-                           ntree = 100,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_mod_PET4 = randomForest(plastMass ~ .,
-                           data = PET_dataR,
-                           ntree = 100,
-                           mtry = 20,
-                           importance = T,
-                           na.action = na.omit)
-
-RFpred_PET = predict(RF_mod_PET, new_sub)
-RFpred_PET2 = predict(RF_mod_PET2, new_sub2)
-RFpred_PET3 = predict(RF_mod_PET3, new_sub3)
-RFpred_PET4 = predict(RF_mod_PET4, new_sub4)
-
-PET_obs = list(new_sub$plastMass, new_sub2$plastMass,
-               new_sub3$plastMass, new_sub4$plastMass)
-PET_preds = list(RFpred_PET, RFpred_PET2, RFpred_PET3, RFpred_PET4)
-
-PET_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PET_obs, PET_preds)
-
-for (i in seq_along(PET_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PET_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PET_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PET_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PET = cv_random_forest(PET_data, PET_data$spcARmovav)
-cv_RF_PET2 = cv_random_forest(PET_data, PET_data$spcA)
-cv_RF_PET3 = cv_random_forest(PET_data, PET_data$spcAmovav)
-cv_RF_PET4 = cv_random_forest(PET_raw, PET_raw$spcA)
-
-cv_RF_PETresults = list(cv_RF_PET, cv_RF_PET2,
-                  cv_RF_PET3, cv_RF_PET4)
-
-for (i in seq_along(cv_RF_PETresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_RF_PETresults[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_RF_PETresults[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_RF_PETresults[[i]]$R2))
-}
-
-
-#==============================================================================#
-
-## PE modeling
-### prepare RF-ready datasets
-PE_data1 = data.frame(plastMass = PE_data$MASS_mg, PE_data$spcARmovav)
-colnames(PE_data1) = c("plastMass", paste0("spec.", colnames(PE_data$spcARmovav)))
-
-PE_data2 = data.frame(plastMass = PE_data$MASS_mg, PE_data$spcA)
-colnames(PE_data2) = c("plastMass", paste0("spec.", colnames(PE_data$spcA)))
-
-PE_data3 = data.frame(plastMass = PE_data$MASS_mg, PE_data$spcAmovav)
-colnames(PE_data3) = c("plastMass", paste0("spec.", colnames(PE_data$spcAmovav)))
-
-PE_dataR = data.frame(plastMass = PE_raw$MASS_mg, PE_raw$spcA)
-colnames(PE_dataR) = c("plastMass", paste0("spec.", colnames(raw$spcA)))
-
-
-RF_mod_PE = randomForest(plastMass ~ .,
-                         data = PE_data1,
-                         ntree = 100,
-                         mtry = 10,
-                         importance = T,
-                         na.action = na.omit)
-
-RF_mod_PE2 = randomForest(plastMass ~ .,
-                          data = PE_data2,
-                          ntree = 100,
-                          mtry = 20,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_mod_PE3 = randomForest(plastMass ~ .,
-                          data = PE_data3,
-                          ntree = 100,
-                          mtry = 10,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_mod_PE4 = randomForest(plastMass ~ .,
-                          data = PE_dataR,
-                          ntree = 100,
-                          mtry = 20,
-                          importance = T,
-                          na.action = na.omit)
-
-RFpred_PE = predict(RF_mod_PE, new_sub)
-RFpred_PE2 = predict(RF_mod_PE2, new_sub2)
-RFpred_PE3 = predict(RF_mod_PE3, new_sub3)
-RFpred_PE4 = predict(RF_mod_PE4, new_sub4)
-
-PE_obs = list(new_sub$plastMass, new_sub2$plastMass,
-              new_sub3$plastMass, new_sub4$plastMass)
-PE_preds = list(RFpred_PE, RFpred_PE2, RFpred_PE3, RFpred_PE4)
-
-PE_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PE_obs, PE_preds)
-
-for (i in seq_along(PE_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PE_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PE_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PE_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PE = cv_random_forest(PE_data, PE_data$spcARmovav)
-cv_RF_PE2 = cv_random_forest(PE_data, PE_data$spcA)
-cv_RF_PE3 = cv_random_forest(PE_data, PE_data$spcAmovav)
-cv_RF_PE4 = cv_random_forest(PE_raw, PE_raw$spcA)
-
-cv_RF_PEresults = list(cv_RF_PE, cv_RF_PE2,
-                  cv_RF_PE3, cv_RF_PE4)
-
-for (i in seq_along(cv_RF_PEresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_RF_PEresults[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_RF_PEresults[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_RF_PEresults[[i]]$R2))
-}
-
-
-t1 = Sys.time()
-
-print(t1 - t0)
-
-
-################################################################################
-#                    NIR - SWIR WAVELENGTH RANGE ONLY                          #
-################################################################################
-
-VIS = which(as.numeric(colnames(data$spcA)) < 1000)
-VIS2 = which(as.numeric(colnames(data$spcARmovav)) < 1000)
-
-
-data$NIRspcARmovav = data$spcARmovav[, -VIS2]
-data$NIRspcA = data$spcA[, -VIS]
-data$NIRspcAmovav = data$spcAmovav[, -VIS]
-raw$NIRspcA = raw$spcA[, -VIS]
-
-new$NIRspcARmovav = new$spcARmovav[, -VIS2]
-new$NIRspcA = new$spcA[, -VIS]
-new$NIRspcAmovav = new$spcAmovav[, -VIS]
-raw_new$NIRspcA = raw_new$spcA[,-VIS]
-
-dataNIR = data.frame(plastMass = data$MASS_mg, data$NIRspcARmovav)
-colnames(dataNIR) = c("plastMass", paste0("spec.", colnames(data$NIRspcARmovav)))
-
-dataNIR2 = data.frame(plastMass = data$MASS_mg, data$NIRspcA)
-colnames(dataNIR2) = c("plastMass", paste0("spec.", colnames(data$NIRspcA)))
-
-dataNIR3 = data.frame(plastMass = data$MASS_mg, data$NIRspcAmovav)
-colnames(dataNIR3) = c("plastMass", paste0("spec.", colnames(data$NIRspcAmovav)))
-
-rawNIR = data.frame(plastMass = raw$MASS_mg, raw$NIRspcA)
-colnames(rawNIR) = c("plastMass", paste0("spec.", colnames(raw$NIRspcA)))
-
-
-new_NIR = data.frame(plastMass = new$MASS_mg, new$NIRspcARmovav)
-colnames(new_NIR) = c("plastMass", paste0("spec.", colnames(new$NIRspcARmovav)))
-
-new_NIR2 = data.frame(plastMass = new$MASS_mg, new$NIRspcA)
-colnames(new_NIR2) = c("plastMass", paste0("spec.", colnames(new$NIRspcA)))
-
-new_NIR3 = data.frame(plastMass = new$MASS_mg, new$NIRspcAmovav)
-colnames(new_NIR3) = c("plastMass", paste0("spec.", colnames(new$NIRspcAmovav)))
-
-new_NIR4 = data.frame(plastMass = raw_new$MASS_mg, raw_new$NIRspcA)
-colnames(new_NIR4) = c("plastMass", paste0("spec.", colnames(raw_new$NIRspcA)))
-
-
-## test parameterization for NIR-only wavelengths
-NIR_preproc_list = list(
-  M1_NIR = data$NIRspcARmovav,  # SGf + 5nm resample + SNV + moving average
-  M2_NIR = data$NIRspcA,        # SGf only
-  M3_NIR = data$NIRspcAmovav,  # SGf + SNV + moving average 
-  M4_NIR = raw$NIRspcA          # raw data
-)
-
-param_grid = expand.grid(
-  ntree = c(100, 150, 200),
-  mtry = c(10, 50, 55, 100)
-)
-
-NIRcv_results = list()
-
-t0 = Sys.time()
-
-### loop over RF params:
-for (p in seq_len(nrow(param_grid))) {
-  ntree_val = param_grid$ntree[p]
-  mtry_val = param_grid$mtry[p]
-  
-  cat("\n\n=== RF parameters: ntree =", ntree_val, ", mtry =", mtry_val, "===\n")
-  
-  #### loop over spectral preprocess models
-  for (model_name in names(NIR_preproc_list)) {
-    spc_mat = NIR_preproc_list[[model_name]]
-    
-    res = cv_random_forest(
-      data = data,
-      spc_matrix = spc_mat,
-      ntree = ntree_val,
-      mtry = mtry_val
-    )
-    
-    ##### store results with descriptive key
-    key = paste0("ntree", ntree_val, "_mtry", mtry_val, "_", model_name)
-    NIRcv_results[[key]] = res
-    
-    ##### display results
-    cat("======= MODEL", model_name, "(10-fold CV) =======\n")
-    cat(sprintf("ME   : %.4f\n", res$ME))
-    cat(sprintf("RMSE : %.4f\n", res$RMSE))
-    cat(sprintf("R²   : %.4f\n\n", res$R2))
-  }
-}
-
-t1 = Sys.time()
-cat("Training time:", round(t1 - t0, 2), "minutes\n")
-
-### convert results to a summary dataframe
-NIRsummary_df = do.call(rbind, lapply(names(NIRcv_results), function(k) {
-  res = NIRcv_results[[k]]
-  data.frame(
-    Model = k,
-    ntree = res$ntree,
-    mtry = res$mtry,
-    ME = res$ME,
-    RMSE = res$RMSE,
-    R2 = res$R2
-  )
-}))
-
-print(NIRsummary_df)
-
-
-## "naive" NIR-only models
-
-set.seed(42)
-
-RF_mod_NIR = randomForest(plastMass ~ .,
-                          data = dataNIR,
-                          ntree = 150,
-                          mtry = 50,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_mod_NIR2 = randomForest(plastMass ~ .,
-                           data = dataNIR2,
-                           ntree = 150,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_mod_NIR3 = randomForest(plastMass ~ .,
-                           data = dataNIR3,
-                           ntree = 200,
-                           mtry = 50,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_mod_NIR4 = randomForest(plastMass ~ .,
-                           data = rawNIR,
-                           ntree = 100,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-varImpPlot(RF_mod_NIR, main = "NIR_Model 1")
-varImpPlot(RF_mod_NIR2, main = "NIR_Model 2")
-varImpPlot(RF_mod_NIR3, main = "NIR_Model 3")
-varImpPlot(RF_mod_NIR4, main = "NIR_Model 4")
-
-
-RFpred_NIR = predict(RF_mod_NIR, new_NIR)
-RFpred_NIR2 = predict(RF_mod_NIR2, new_NIR2)
-RFpred_NIR3 = predict(RF_mod_NIR3, new_NIR3)
-RFpred_NIR4 = predict(RF_mod_NIR4, new_NIR4)
-
-NIR_obs = list(new_sub$plastMass, new_sub2$plastMass,
-               new_sub3$plastMass, new_sub4$plastMass)
-NIR_preds = list(RFpred_NIR, RFpred_NIR2, RFpred_NIR3, RFpred_NIR4)
-
-NIR_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, NIR_obs, NIR_preds)
-
-for (i in seq_along(NIR_preds)) {
-  cat(paste0("\n======= NIR_MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", NIR_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", NIR_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", NIR_stats["R2", i]))
-}
-
-#==============================================================================#
-#                MODELLING FOR SINGLE POLYMERS QUANTIFICATION (NIR)            #
-#==============================================================================#
-
-## PP modeling
-### prepare RF-ready datasets
-PP_data_NIR1 = data.frame(plastMass = PP_data$MASS_mg, PP_data$NIRspcARmovav)
-colnames(PP_data_NIR1) = c("plastMass", paste0("spec.", colnames(PP_data$NIRspcARmovav)))
-
-PP_data_NIR2 = data.frame(plastMass = PP_data$MASS_mg, PP_data$NIRspcA)
-colnames(PP_data_NIR2) = c("plastMass", paste0("spec.", colnames(PP_data$NIRspcA)))
-
-PP_data_NIR3 = data.frame(plastMass = PP_data$MASS_mg, PP_data$NIRspcAmovav)
-colnames(PP_data_NIR3) = c("plastMass", paste0("spec.", colnames(PP_data$NIRspcAmovav)))
-
-PP_data_NIR_R = data.frame(plastMass = PP_raw$MASS_mg, PP_raw$NIRspcA)
-colnames(PP_data_NIR_R) = c("plastMass", paste0("spec.", colnames(raw$NIRspcA)))
-
-
-set.seed(4)
-
-RF_NIR_PP = randomForest(plastMass ~ .,
-                         data = PP_data_NIR1,
-                         ntree = 150,
-                         mtry = 50,
-                         importance = T,
-                         na.action = na.omit)
-
-RF_NIR_PP2 = randomForest(plastMass ~ .,
-                          data = PP_data_NIR2,
-                          ntree = 150,
-                          mtry = 10,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_NIR_PP3 = randomForest(plastMass ~ .,
-                          data = PP_data_NIR3,
-                          ntree = 200,
-                          mtry = 50,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_NIR_PP4 = randomForest(plastMass ~ .,
-                          data = PP_data_NIR_R,
-                          ntree = 100,
-                          mtry = 10,
-                          importance = T,
-                          na.action = na.omit)
-
-RFpred_NIR_PP = predict(RF_NIR_PP, new_sub)
-RFpred_NIR_PP2 = predict(RF_NIR_PP2, new_sub2)
-RFpred_NIR_PP3 = predict(RF_NIR_PP3, new_sub3)
-RFpred_NIR_PP4 = predict(RF_NIR_PP4, new_sub4)
-
-PP_NIR_obs = list(new_sub$plastMass, new_sub2$plastMass,
-                  new_sub3$plastMass, new_sub4$plastMass)
-PP_NIR_preds = list(RFpred_NIR_PP, RFpred_NIR_PP2,
-                    RFpred_NIR_PP3, RFpred_NIR_PP4)
-
-PP_NIR_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PP_NIR_obs, PP_NIR_preds)
-
-for (i in seq_along(PP_NIR_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PP_NIR_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PP_NIR_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PP_NIR_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PP_NIR = cv_random_forest(PP_data, PP_data$NIRspcARmovav)
-cv_RF_PP_NIR2 = cv_random_forest(PP_data, PP_data$NIRspcA)
-cv_RF_PP_NIR3 = cv_random_forest(PP_data, PP_data$NIRspcAmovav)
-cv_RF_PP_NIR4 = cv_random_forest(PP_raw, PP_raw$NIRspcA)
-
-cv_RF_PP_NIRresults = list(cv_RF_PP_NIR, cv_RF_PP_NIR2,
-                           cv_RF_PP_NIR3, cv_RF_PP_NIR4)
-
-for (i in seq_along(cv_RF_PP_NIRresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_RF_PP_NIRresults[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_RF_PP_NIRresults[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_RF_PP_NIRresults[[i]]$R2))
-}
-
-## PVC modeling
-### prepare RF-ready datasets
-PVC_data_NIR1 = data.frame(plastMass = PVC_data$MASS_mg, PVC_data$NIRspcARmovav)
-colnames(PVC_data_NIR1) = c("plastMass", paste0("spec.", colnames(PVC_data$NIRspcARmovav)))
-
-PVC_data_NIR2 = data.frame(plastMass = PVC_data$MASS_mg, PVC_data$NIRspcA)
-colnames(PVC_data_NIR2) = c("plastMass", paste0("spec.", colnames(PVC_data$NIRspcA)))
-
-PVC_data_NIR3 = data.frame(plastMass = PVC_data$MASS_mg, PVC_data$NIRspcAmovav)
-colnames(PVC_data_NIR3) = c("plastMass", paste0("spec.", colnames(PVC_data$NIRspcAmovav)))
-
-PVC_data_NIR_R = data.frame(plastMass = PVC_raw$MASS_mg, PVC_raw$NIRspcA)
-colnames(PVC_data_NIR_R) = c("plastMass", paste0("spec.", colnames(raw$NIRspcA)))
-
-
-set.seed(4)
-
-RF_NIR_PVC = randomForest(plastMass ~ .,
-                          data = PVC_data_NIR1,
-                          ntree = 150,
-                          mtry = 50,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_NIR_PVC2 = randomForest(plastMass ~ .,
-                           data = PVC_data_NIR2,
-                           ntree = 150,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_NIR_PVC3 = randomForest(plastMass ~ .,
-                           data = PVC_data_NIR3,
-                           ntree = 200,
-                           mtry = 50,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_NIR_PVC4 = randomForest(plastMass ~ .,
-                           data = PVC_data_NIR_R,
-                           ntree = 100,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RFpred_NIR_PVC = predict(RF_NIR_PVC, new_sub)
-RFpred_NIR_PVC2 = predict(RF_NIR_PVC2, new_sub2)
-RFpred_NIR_PVC3 = predict(RF_NIR_PVC3, new_sub3)
-RFpred_NIR_PVC4 = predict(RF_NIR_PVC4, new_sub4)
-
-PVC_NIR_obs = list(new_sub$plastMass, new_sub2$plastMass,
-                   new_sub3$plastMass, new_sub4$plastMass)
-PVC_NIR_preds = list(RFpred_NIR_PVC, RFpred_NIR_PVC2,
-                     RFpred_NIR_PVC3, RFpred_NIR_PVC4)
-
-PVC_NIR_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PVC_NIR_obs, PVC_NIR_preds)
-
-for (i in seq_along(PVC_NIR_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PVC_NIR_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PVC_NIR_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PVC_NIR_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PVC_NIR = cv_random_forest(PVC_data, PVC_data$NIRspcARmovav)
-cv_RF_PVC_NIR2 = cv_random_forest(PVC_data, PVC_data$NIRspcA)
-cv_RF_PVC_NIR3 = cv_random_forest(PVC_data, PVC_data$NIRspcAmovav)
-cv_RF_PVC_NIR4 = cv_random_forest(PVC_raw, PVC_raw$NIRspcA)
-
-cv_RF_PVC_NIRresults = list(cv_RF_PVC_NIR, cv_RF_PVC_NIR2,
-                            cv_RF_PVC_NIR3, cv_RF_PVC_NIR4)
-
-for (i in seq_along(cv_RF_PVC_NIRresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_RF_PVC_NIRresults[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_RF_PVC_NIRresults[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_RF_PVC_NIRresults[[i]]$R2))
-}
-
-## PET modeling
-### prepare RF-ready datasets
-PET_data_NIR1 = data.frame(plastMass = PET_data$MASS_mg, PET_data$NIRspcARmovav)
-colnames(PET_data_NIR1) = c("plastMass", paste0("spec.", colnames(PET_data$NIRspcARmovav)))
-
-PET_data_NIR2 = data.frame(plastMass = PET_data$MASS_mg, PET_data$NIRspcA)
-colnames(PET_data_NIR2) = c("plastMass", paste0("spec.", colnames(PET_data$NIRspcA)))
-
-PET_data_NIR3 = data.frame(plastMass = PET_data$MASS_mg, PET_data$NIRspcAmovav)
-colnames(PET_data_NIR3) = c("plastMass", paste0("spec.", colnames(PET_data$NIRspcAmovav)))
-
-PET_data_NIR_R = data.frame(plastMass = PET_raw$MASS_mg, PET_raw$NIRspcA)
-colnames(PET_data_NIR_R) = c("plastMass", paste0("spec.", colnames(raw$NIRspcA)))
-
-
-set.seed(4)
-
-RF_NIR_PET = randomForest(plastMass ~ .,
-                          data = PET_data_NIR1,
-                          ntree = 150,
-                          mtry = 50,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_NIR_PET2 = randomForest(plastMass ~ .,
-                           data = PET_data_NIR2,
-                           ntree = 150,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_NIR_PET3 = randomForest(plastMass ~ .,
-                           data = PET_data_NIR3,
-                           ntree = 200,
-                           mtry = 50,
-                           importance = T,
-                           na.action = na.omit)
-
-RF_NIR_PET4 = randomForest(plastMass ~ .,
-                           data = PET_data_NIR_R,
-                           ntree = 100,
-                           mtry = 10,
-                           importance = T,
-                           na.action = na.omit)
-
-RFpred_NIR_PET = predict(RF_NIR_PET, new_sub)
-RFpred_NIR_PET2 = predict(RF_NIR_PET2, new_sub2)
-RFpred_NIR_PET3 = predict(RF_NIR_PET3, new_sub3)
-RFpred_NIR_PET4 = predict(RF_NIR_PET4, new_sub4)
-
-PET_NIR_obs = list(new_sub$plastMass, new_sub2$plastMass,
-                   new_sub3$plastMass, new_sub4$plastMass)
-PET_NIR_preds = list(RFpred_NIR_PET, RFpred_NIR_PET2,
-                     RFpred_NIR_PET3, RFpred_NIR_PET4)
-
-PET_NIR_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PET_NIR_obs, PET_NIR_preds)
-
-for (i in seq_along(PET_NIR_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PET_NIR_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PET_NIR_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PET_NIR_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PET_NIR = cv_random_forest(PET_data, PET_data$NIRspcARmovav)
-cv_RF_PET_NIR2 = cv_random_forest(PET_data, PET_data$NIRspcA)
-cv_RF_PET_NIR3 = cv_random_forest(PET_data, PET_data$NIRspcAmovav)
-cv_RF_PET_NIR4 = cv_random_forest(PET_raw, PET_raw$NIRspcA)
-
-cv_RF_PET_NIRresults = list(cv_RF_PET_NIR, cv_RF_PET_NIR2,
-                            cv_RF_PET_NIR3, cv_RF_PET_NIR4)
-
-for (i in seq_along(cv_RF_PET_NIRresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_results[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_results[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_results[[i]]$R2))
-}
-
-## PE modeling
-### prepare RF-ready datasets
-PE_data_NIR1 = data.frame(plastMass = PE_data$MASS_mg, PE_data$NIRspcARmovav)
-colnames(PE_data_NIR1) = c("plastMass", paste0("spec.", colnames(PE_data$NIRspcARmovav)))
-
-PE_data_NIR2 = data.frame(plastMass = PE_data$MASS_mg, PE_data$NIRspcA)
-colnames(PE_data_NIR2) = c("plastMass", paste0("spec.", colnames(PE_data$NIRspcA)))
-
-PE_data_NIR3 = data.frame(plastMass = PE_data$MASS_mg, PE_data$NIRspcAmovav)
-colnames(PE_data_NIR3) = c("plastMass", paste0("spec.", colnames(PE_data$NIRspcAmovav)))
-
-PE_data_NIR_R = data.frame(plastMass = PE_raw$MASS_mg, PE_raw$NIRspcA)
-colnames(PE_data_NIR_R) = c("plastMass", paste0("spec.", colnames(raw$NIRspcA)))
-
-
-set.seed(4)
-
-RF_NIR_PE = randomForest(plastMass ~ .,
-                         data = PE_data_NIR1,
-                         ntree = 150,
-                         mtry = 50,
-                         importance = T,
-                         na.action = na.omit)
-
-RF_NIR_PE2 = randomForest(plastMass ~ .,
-                          data = PE_data_NIR2,
-                          ntree = 150,
-                          mtry = 10,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_NIR_PE3 = randomForest(plastMass ~ .,
-                          data = PE_data_NIR3,
-                          ntree = 200,
-                          mtry = 50,
-                          importance = T,
-                          na.action = na.omit)
-
-RF_NIR_PE4 = randomForest(plastMass ~ .,
-                          data = PE_data_NIR_R,
-                          ntree = 100,
-                          mtry = 10,
-                          importance = T,
-                          na.action = na.omit)
-
-RFpred_NIR_PE = predict(RF_NIR_PE, new_sub)
-RFpred_NIR_PE2 = predict(RF_NIR_PE2, new_sub2)
-RFpred_NIR_PE3 = predict(RF_NIR_PE3, new_sub3)
-RFpred_NIR_PE4 = predict(RF_NIR_PE4, new_sub4)
-
-PE_NIR_obs = list(new_sub$plastMass, new_sub2$plastMass,
-                  new_sub3$plastMass, new_sub4$plastMass)
-PE_NIR_preds = list(RFpred_NIR_PE, RFpred_NIR_PE2,
-                    RFpred_NIR_PE3, RFpred_NIR_PE4)
-
-PE_NIR_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, PE_NIR_obs, PE_NIR_preds)
-
-for (i in seq_along(PE_NIR_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", PE_NIR_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", PE_NIR_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", PE_NIR_stats["R2", i]))
-}
-
-### polymer-specific CV
-cv_RF_PE_NIR = cv_random_forest(PE_data, PE_data$NIRspcARmovav)
-cv_RF_PE_NIR2 = cv_random_forest(PE_data, PE_data$NIRspcA)
-cv_RF_PE_NIR3 = cv_random_forest(PE_data, PE_data$NIRspcAmovav)
-cv_RF_PE_NIR4 = cv_random_forest(PE_raw, PE_raw$NIRspcA)
-
-cv_RF_PE_NIRresults = list(cv_RF_PE_NIR, cv_RF_PE_NIR2,
-                           cv_RF_PE_NIR3, cv_RF_PE_NIR4)
-
-for (i in seq_along(cv_RF_PE_NIRresults)) {
-  cat(paste0("\n======= MODEL ", i, " (10-fold CV) =======\n"))
-  cat(sprintf("ME   : %.4f\n", cv_results[[i]]$ME))
-  cat(sprintf("RMSE : %.4f\n", cv_results[[i]]$RMSE))
-  cat(sprintf("R²   : %.4f\n", cv_results[[i]]$R2))
-}
+                             tag_suffix = ')') &
+  theme(plot.tag = element_text(size = 22))
