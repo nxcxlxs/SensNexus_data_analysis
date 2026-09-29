@@ -384,88 +384,14 @@ for (i in seq_along(cv_results)) {
 }
 
 
-
-#
-#
-# LAST EDITING 2026-09-29
-#       14h41
-#
-#
-
-
-
+################################################################################
+#            FULL INTERNAL DATASET TRAINING/EXTERNAL VALIDATION                #
 ################################################################################
 
-## test parameterization
-### spectral preprocessing datasets
-spectral_preproc_list = list(
-  M1 = data$spcARmovav,  # SGf + 5nm resample + SNV + moving average
-  M2 = data$spcA,        # SGf only
-  M3 = data$spcAmovav,  # SGf + SNV + moving average 
-  M4 = raw$spcA          # raw data
-)
-
-param_grid = expand.grid(
-  ntree = c(100, 150, 200),
-  mtry = c(10, 50, 55, 100)
-)
-
-cv_results = list()
-
-### loop over RF params:
-for (p in seq_len(nrow(param_grid))) {
-  ntree_val = param_grid$ntree[p]
-  mtry_val = param_grid$mtry[p]
-  
-  cat("\n\n=== RF parameters: ntree =", ntree_val, ", mtry =", mtry_val, "===\n")
-  
-  #### loop over spectral preprocess models
-  for (model_name in names(spectral_preproc_list)) {
-    spc_mat = spectral_preproc_list[[model_name]]
-    
-    res = cv_random_forest(
-      data = data,
-      spc_matrix = spc_mat,
-      ntree = ntree_val,
-      mtry = mtry_val
-    )
-    
-    ##### store results with descriptive key
-    key = paste0("ntree", ntree_val, "_mtry", mtry_val, "_", model_name)
-    cv_results[[key]] = res
-    
-    ##### display results
-    cat("======= MODEL", model_name, "(10-fold CV) =======\n")
-    cat(sprintf("ME   : %.4f\n", res$ME))
-    cat(sprintf("RMSE : %.4f\n", res$RMSE))
-    cat(sprintf("R²   : %.4f\n\n", res$R2))
-  }
-}
-
-### optionally convert results to a summary dataframe
-summary_df = do.call(rbind, lapply(names(cv_results), function(k) {
-  res = cv_results[[k]]
-  data.frame(
-    Model = k,
-    ntree = res$ntree,
-    mtry = res$mtry,
-    ME = res$ME,
-    RMSE = res$RMSE,
-    R2 = res$R2
-  )
-}))
-
-print(summary_df)
-
-
-#==============================================================================#
-#                     FULL INTERNAL DATASET TRANING!                           #
-#==============================================================================#
-
-## prepare data
-# prepare FULL calibration data
-dataFULL = data.frame(plastMass = data$MASS_mg, data$spcARmovav)
-colnames(dataFULL) = c("plastMass", paste0("spec.", colnames(data$spcARmovav)))
+# prepare data
+## prepare FULL calibration data
+rawFULL = data.frame(plastMass = raw$MASS_mg, raw$spcA)
+colnames(rawFULL) = c("plastMass", paste0("spec.", colnames(raw$spcA)))
 
 dataFULL2 = data.frame(plastMass = data$MASS_mg, data$spcA)
 colnames(dataFULL2) = c("plastMass", paste0("spec.", colnames(data$spcA)))
@@ -473,40 +399,49 @@ colnames(dataFULL2) = c("plastMass", paste0("spec.", colnames(data$spcA)))
 dataFULL3 = data.frame(plastMass = data$MASS_mg, data$spcAmovav)
 colnames(dataFULL3) = c("plastMass", paste0("spec.", colnames(data$spcAmovav)))
 
-rawFULL = data.frame(plastMass = raw$MASS_mg, raw$spcA)
-colnames(rawFULL) = c("plastMass", paste0("spec.", colnames(raw$spcA)))
+dataFULL4 = data.frame(plastMass = data$MASS_mg, data$spcARmovav)
+colnames(dataFULL4) = c("plastMass", paste0("spec.", colnames(data$spcARmovav)))
 
 
 ## "naive" models
 set.seed(2)
 
 RF_mod_full = randomForest(plastMass ~ .,
-                           data = dataFULL,
-                           ntree = 100,
+                           data = rawFULL,
+                           ntree = 150,
                            mtry = 10,
                            importance = T,
                            na.action = na.omit)
 
 RF_mod_full2 = randomForest(plastMass ~ .,
                             data = dataFULL2,
-                            ntree = 100,
-                            mtry = 20,
+                            ntree = 150,
+                            mtry = 10,
                             importance = T,
                             na.action = na.omit)
 
 RF_mod_full3 = randomForest(plastMass ~ .,
                             data = dataFULL3,
-                            ntree = 100,
+                            ntree = 150,
                             mtry = 10,
                             importance = T,
                             na.action = na.omit)
 
 RF_mod_full4 = randomForest(plastMass ~ .,
-                            data = rawFULL,
-                            ntree = 100,
-                            mtry = 20,
+                            data = dataFULL4,
+                            ntree = 150,
+                            mtry = 10,
                             importance = T,
                             na.action = na.omit)
+
+
+#
+#
+# LAST EDITING 2026-09-29
+#       15h09
+#
+#
+
 
 varImpPlot(RF_mod_full, main = "Model 1")
 varImpPlot(RF_mod_full2, main = "Model 2")
