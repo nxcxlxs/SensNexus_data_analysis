@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `plsr_analysis.R` script builds and evaluates Partial Least Squares
+The `PLSRmodeling.R` script builds and evaluates Partial Least Squares
 Regression (PLSR) models that predict microplastic **mass (`MASS_mg`)** from
 Vis-NIR-SWIR reflectance spectra. Four spectral preprocessing treatments
 (M1 to M4) are compared through four validation schemes of increasing
