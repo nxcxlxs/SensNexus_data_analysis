@@ -161,7 +161,7 @@ datCsub3 = data.frame(plastMass = datC$MASS_mg, datC$spcAmovav)
 colnames(datCsub3) = c("plastMass", paste0("spec.", colnames(datC$spcAmovav)))
 
 datCsub4 = data.frame(plastMass = datC$MASS_mg, datC$spcARmovav)
-colnames(datCsub) = c("plastMass", paste0("spec.", colnames(datC$spcARmovav)))
+colnames(datCsub4) = c("plastMass", paste0("spec.", colnames(datC$spcARmovav)))
 
 
 # same tests as in PLSR...
@@ -197,14 +197,14 @@ RF_mod_mass4 = randomForest(plastMass ~ .,
 
 ## variables importance
 ### plots
-impPlot = varImpPlot(RF_mod_mass, main = "Model 4")
+impPlot = varImpPlot(RF_mod_mass, main = "Model 1")
 impPlot2 = varImpPlot(RF_mod_mass2, main = "Model 2")
 impPlot3 = varImpPlot(RF_mod_mass3, main = "Model 3")
-impPlot4 = varImpPlot(RF_mod_mass4, main = "Model 1")
+impPlot4 = varImpPlot(RF_mod_mass4, main = "Model 4")
 
 ### values inspection
-head(impPlot1[order(impPlot1[,"%IncMSE"], decreasing = TRUE), ], 30)
-head(impPlot1[order(impPlot1[,"IncNodePurity"], decreasing = TRUE), ], 30)
+head(impPlot[order(impPlot[,"%IncMSE"], decreasing = TRUE), ], 30)
+head(impPlot[order(impPlot[,"IncNodePurity"], decreasing = TRUE), ], 30)
 
 
 # prepare validation data
@@ -219,7 +219,7 @@ datVsub3 = data.frame(plastMass = datV$MASS_mg, datV$spcAmovav)
 colnames(datVsub3) = c("plastMass", paste0("spec.", colnames(datV$spcAmovav)))
 
 datVsub4 = data.frame(plastMass = datV$MASS_mg, datV$spcARmovav)
-colnames(datVsub) = c("plastMass", paste0("spec.", colnames(datV$spcARmovav)))
+colnames(datVsub4) = c("plastMass", paste0("spec.", colnames(datV$spcARmovav)))
 
 
 # predictions
@@ -368,10 +368,10 @@ cv_random_forest = function(data, spc_matrix,  ntree = 150,
   )
 }
 
-cv_RFmod = cv_random_forest(data, data$spcARmovav)
-cv_RFmod2 = cv_random_forest(data, data$spcA)
-cv_RFmod3 = cv_random_forest(data, data$spcAmovav)
-cv_RFmod4 = cv_random_forest(raw, raw$spcA)
+cv_RFmod = cv_random_forest(pristine_raw, pristine_raw$spcA)
+cv_RFmod2 = cv_random_forest(pristine, pristine$spcA)
+cv_RFmod3 = cv_random_forest(pristine, pristine$spcAmovav)
+cv_RFmod4 = cv_random_forest(pristine, pristine$spcARmovav)
 
 cv_results = list(cv_RFmod, cv_RFmod2,
                   cv_RFmod3, cv_RFmod4)
@@ -390,17 +390,17 @@ for (i in seq_along(cv_results)) {
 
 # prepare data
 ## prepare FULL calibration data
-rawFULL = data.frame(plastMass = raw$MASS_mg, raw$spcA)
-colnames(rawFULL) = c("plastMass", paste0("spec.", colnames(raw$spcA)))
+rawFULL = data.frame(plastMass = pristine_raw$MASS_mg, pristine_raw$spcA)
+colnames(rawFULL) = c("plastMass", paste0("spec.", colnames(pristine_raw$spcA)))
 
-dataFULL2 = data.frame(plastMass = data$MASS_mg, data$spcA)
-colnames(dataFULL2) = c("plastMass", paste0("spec.", colnames(data$spcA)))
+dataFULL2 = data.frame(plastMass = pristine$MASS_mg, pristine$spcA)
+colnames(dataFULL2) = c("plastMass", paste0("spec.", colnames(pristine$spcA)))
 
-dataFULL3 = data.frame(plastMass = data$MASS_mg, data$spcAmovav)
-colnames(dataFULL3) = c("plastMass", paste0("spec.", colnames(data$spcAmovav)))
+dataFULL3 = data.frame(plastMass = pristine$MASS_mg, pristine$spcAmovav)
+colnames(dataFULL3) = c("plastMass", paste0("spec.", colnames(pristine$spcAmovav)))
 
-dataFULL4 = data.frame(plastMass = data$MASS_mg, data$spcARmovav)
-colnames(dataFULL4) = c("plastMass", paste0("spec.", colnames(data$spcARmovav)))
+dataFULL4 = data.frame(plastMass = pristine$MASS_mg, pristine$spcARmovav)
+colnames(dataFULL4) = c("plastMass", paste0("spec.", colnames(pristine$spcARmovav)))
 
 
 # "naive" models
@@ -442,8 +442,8 @@ varImpPlot(RF_mod_full4, main = "Model 4")
 
 
 # prepare new data (external validation)
-new_sub = data.frame(plastMass = colored$MASS_mg, colored$spcARmovav)
-colnames(new_sub) = c("plastMass", paste0("spec.", colnames(colored$spcARmovav)))
+new_sub = data.frame(plastMass = colored_raw$MASS_mg, colored_raw$spcA)
+colnames(new_sub) = c("plastMass", paste0("spec.", colnames(colored_raw$spcA)))
 
 new_sub2 = data.frame(plastMass = colored$MASS_mg, colored$spcA)
 colnames(new_sub2) = c("plastMass", paste0("spec.", colnames(colored$spcA)))
@@ -451,8 +451,8 @@ colnames(new_sub2) = c("plastMass", paste0("spec.", colnames(colored$spcA)))
 new_sub3 = data.frame(plastMass = colored$MASS_mg, colored$spcAmovav)
 colnames(new_sub3) = c("plastMass", paste0("spec.", colnames(colored$spcAmovav)))
 
-new_sub4 = data.frame(plastMass = colored_raw$MASS_mg, colored_raw$spcA)
-colnames(new_sub4) = c("plastMass", paste0("spec.", colnames(colored_raw$spcA)))
+new_sub4 = data.frame(plastMass = colored$MASS_mg, colored$spcARmovav)
+colnames(new_sub4) = c("plastMass", paste0("spec.", colnames(colored$spcARmovav)))
 
 
 ## predicting on new dataset 
@@ -496,16 +496,15 @@ colored1 = colored |>
 colored2 = colored |> 
   filter(!(SAMPLE_ID %in% colored1$SAMPLE_ID))
 
+
 colored_raw$strata = interaction(colored_raw$MASS_mg,
                                  colored_raw$SIZE_CODE)
-
 
 colored_raw1 = colored_raw |> 
   group_by(strata) |> 
   sample_frac(0.5)
 
-
-colored_raw2 = colored |> 
+colored_raw2 = colored_raw |> 
   filter(!(SAMPLE_ID %in% colored_raw1$SAMPLE_ID))
 
 
@@ -539,7 +538,7 @@ spectral_preproc_list_ext = list(
   M1 = list(train = rawFULL, new = raw_new1_M1),
   M2 = list(train = dataFULL2, new = new1_M2),
   M3 = list(train = dataFULL3, new = new1_M3),
-  M4 = list(train = dataFULL, new = new1_M4)
+  M4 = list(train = dataFULL4, new = new1_M4)
   )
 
 
@@ -625,7 +624,7 @@ RF_mod_tuned3 = randomForest(plastMass ~ .,
                              na.action = na.omit)
 
 RF_mod_tuned4 = randomForest(plastMass ~ .,
-                             data = dataFULL,
+                             data = dataFULL4,
                              ntree = 100,
                              mtry = 50,
                              importance = T,
