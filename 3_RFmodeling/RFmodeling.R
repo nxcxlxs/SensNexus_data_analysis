@@ -1,148 +1,174 @@
+require(prospectr)
+require(dplyr)
+require(randomForest)
+require(ggplot2)
+require(patchwork)
+
+
 # load processed data
-data = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_data.rds")
-raw = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil.rds")
-new = readRDS("C:/nico/Dissertação/SENSNEXUS_data/analysis_ready_data/deNoised_newData.rds") 
-raw_new = readRDS("C:/nico/Dissertação/SENSNEXUS_data/preprocessed_data/datsoil2.rds")
+pristine = readRDS("../preprocessed_data/pristine_denoised.rds")
+pristine_raw = readRDS("../raw_spectra/raw_pristine.rds")
+colored = readRDS("../preprocessed_data/colored_denoised.rds") 
+colored_raw = readRDS("../raw_spectra/raw_colored.rds")
 
 # convert spectra to absorbance
-data$spcA = log(1/data$spc)
-raw$spcA = log(1/raw$spc)
+pristine$spcA = log(1/pristine$spc)
+pristine_raw$spcA = log(1/pristine_raw$spc)
+pristine_raw$spcA = as.matrix(pristine_raw$spcA)
 
-new$spcA = log(1/new$spc)
-raw_new$spcA = log(1/raw_new$spc)
+colored$spcA = log(1/colored$spc)
+colored_raw$spcA = log(1/colored_raw$spc)
+colored_raw$spcA = as.matrix(colored_raw$spcA)
 
-# plot spectra profile
-matplot(colnames(raw_new$spcA), t(raw_new$spcA),
-        type = "l",
-        lty = 1,
-        col = rgb(0.5, 0.5, 0.5, alpha = 0.3))
-
-# smooth it out (for Wadoux's approach)
-oldWavs = as.numeric(colnames(data$spcA))
-newWavs = seq(min(oldWavs), max(oldWavs), by = 5)
-
-data$spcAR = prospectr::resample(data$spcA,
-                                 wav = oldWavs,
-                                 new.wav = newWavs,
-                                 interpol = "linear")
-
-new$spcAR = prospectr::resample(new$spcA,
-                                wav = oldWavs,
-                                new.wav = newWavs,
-                                interpol = "linear")
-
-require(prospectr)
-## SNV for baseline correction
-data$spcARsnv = standardNormalVariate(data$spcAR)
-data$spcAsnv = standardNormalVariate(data$spcA)
-
-new$spcARsnv = standardNormalVariate(new$spcAR)
-new$spcAsnv = standardNormalVariate(new$spcA)
-
-## Moving Window Average to the SNV spectra
-data$spcARmovav = movav(data$spcARsnv, w = 11)
-data$spcAmovav = movav(data$spcAsnv, w = 11)
-
-new$spcARmovav = movav(new$spcARsnv, w = 11)
-new$spcAmovav = movav(new$spcAsnv, w = 11)
-
-matplot(colnames(data$spcAmovav), t(data$spcAmovav),
+# plot spectra profiles
+par(mfrow = c(1, 2))
+matplot(colnames(pristine$spcA),
+        t(pristine$spcA),
+        main = "Absorbance spectra profile\n (pristine plastics)",
+        xlab = "Wavelength (nm)",
+        ylab = "Absorbance",
         type = "l",
         lty = 1,
         col = rgb(0.5, 0.5, 0.5,
                   alpha = 0.3))
 
-#==============================================================================#
-# TRY `data$spcA`, `data$spcAmovav` and `data$spcARmovav` TO CHECK DIFFERENCES #
-#==============================================================================#
+matplot(colnames(colored$spcA),
+        t(colored$spcA),
+        main = "Absorbance spectra profile\n (colored plastics)",
+        xlab = "Wavelength (nm)",
+        ylab = "Absorbance",
+        type = "l",
+        lty = 1,
+        col = rgb(0.1, 0.5, 0.1,
+                  alpha = 0.3))
 
-# combined stratification key for calib./valid. data split
-require(dplyr)
-data$strata = interaction(data$POLYMER,
-                          data$MASS_mg, # this is pretty much a `treatment` flaggin...
-                          data$SIZE_CODE)
 
-raw$strata = interaction(raw$POLYMER,
-                         raw$MASS_mg,
-                         raw$SIZE_CODE)
+################################################################################
+#                     PREPROCESSING TREATMENTS BOILERPLATE                     #
+################################################################################
+
+# M1 (raw data) = `raw_pristine.rds` & `raw_colored.rds`
+# from `label_pristine_data.R` & `label_colored_data.R`
+
+# M2 (minimal) = `pristine_denoised.rds` & `colored_denoised.rds`
+# from `spectra_processing.R`
+
+# M3 (in-between) = SGf + SNV + movav
+pristine$spcAmovav = movav(standardNormalVariate(pristine$spcA), w = 11)
+colored$spcAmovav = movav(standardNormalVariate(colored$spcA), w = 11)
+
+# M4 (full preprocessing) = SGf + 5nm resample + SNV + movav
+oldWavs = as.numeric(colnames(pristine$spcA))
+newWavs = seq(min(oldWavs), max(oldWavs), by = 5) # same range for `colored`
+
+pristine$spcAR = resample(pristine$spcA,
+                          wav = oldWavs,
+                          new.wav = newWavs,
+                          interpol = "linear")
+pristine$spcARmovav = movav(standardNormalVariate(pristine$spcAR), w = 11)
+
+colored$spcAR = resample(colored$spcA,
+                         wav = oldWavs,
+                         new.wav = newWavs,
+                         interpol = "linear")
+colored$spcARmovav = movav(standardNormalVariate(colored$spcAR), w = 11)
+
+
+## visualize differences (e.g., pristine raw vs. full preprocessing)============#
+par(mfrow = c(1, 2))
+
+matplot(colnames(pristine_raw$spcA),
+        t(pristine_raw$spcA),
+        main = "Absorbance spectra profile\n (raw)",
+        xlab = "Wavelength (nm)",
+        ylab = "Absorbance",
+        type = "l",
+        lty = 1,
+        col = rgb(0.5, 0.5, 0.5,
+                  alpha = 0.3))
+
+matplot(colnames(pristine$spcARmovav),
+        t(pristine$spcARmovav),
+        main = "Absorbance spectra profile\n (full preprocessing)",
+        xlab = "Wavelength (nm)",
+        ylab = "Absorbance",
+        type = "l",
+        lty = 1,
+        col = rgb(0.5, 0.1, 0.1,
+                  alpha = 0.3))
+
+
+################################################################################
+#                       SPLIT DATASET FOR 75/25 HOLD-OUT                       #
+################################################################################
+pristine$strata = interaction(pristine$POLYMER,
+                              pristine$MASS_mg,
+                              pristine$SIZE_CODE)
+
+pristine_raw$strata = interaction(pristine_raw$POLYMER,
+                                  pristine_raw$MASS_mg,
+                                  pristine_raw$SIZE_CODE)
 
 set.seed(1)
-datC = data |> 
-  group_by(strata) |> 
+
+datC = pristine |>
+  group_by(strata) |>
   sample_frac(0.75)
 
-datV = data |> 
+datV = pristine |>
   filter(!(SAMPLE_ID %in% datC$SAMPLE_ID))
 
-rawC = raw |> 
+
+rawC = pristine_raw |> 
   group_by(strata) |> 
   sample_frac(0.75)
 
-rawV = raw |> 
+rawV = pristine_raw |> 
   filter(!(SAMPLE_ID %in% rawC$SAMPLE_ID))
 
-vars = c("MASS_mg", "POLYMER", "SIZE_CODE")
-par(mfrow = c(3, 2))
 
-for (i in seq_along(vars)) {
-  var = vars[i]
-  
-  barplot(table(datC[[var]]),
-          main = "Calibration",
-          xlab = var)
-  
-  barplot(table(datV[[var]]),
-          main = "Validation",
-          xlab = var)
-  cat("\nCALIBRATION:\n", var)
-  print(table(datC[[var]]))
-  
-  cat("\nVALIDATION:\n", var)
-  print(table(datV[[var]]))
-}
+# check distribution in calibration and validation sets
+cat("`POLYMER` distribution in:\n",
+    "-- Calibration --",
+    paste(capture.output(table(datC$POLYMER)), collapse = "\n"), "\n\n",
+    "-- Validation --",
+    paste(capture.output(table(datV$POLYMER)), collapse = "\n"))
 
-################################################################################
 
-# validation metrics
-ME = function(obs, pred){
-  mean(pred - obs, na.rm = T)
-}
+cat("`MASS_mg` distribution in:\n",
+    "-------- Calibration --------",
+    paste(capture.output(table(datC$MASS_mg)), collapse = "\n"), "\n\n",
+    "-------- Validation --------",
+    paste(capture.output(table(datV$MASS_mg)), collapse = "\n"))
 
-RMSE = function(obs, pred){
-  sqrt(mean((pred - obs)^2, na.rm = T))
-}
 
-R2 = function(obs, pred){
-  SSE = sum((pred - obs)^2, na.rm = T) # squared error sum
-  SST = sum((obs - mean(obs, na.rm = T))^2, na.rm = T) # squares total sum
-  R2 = 1 - SSE / SST
-  return(R2)
-}
+cat("`SIZE_CODE` distribution in:\n",
+    "-- Calibration --",
+    paste(capture.output(table(datC$SIZE_CODE)), collapse = "\n"), "\n\n",
+    "-- Validation --",
+    paste(capture.output(table(datV$SIZE_CODE)), collapse = "\n"))
 
-################################################################################
 
 # fitting RF
-require(randomForest)
-
-# prepare calibration data
-datCsub = data.frame(plastMass = datC$MASS_mg, datC$spcARmovav)
-colnames(datCsub) = c("plastMass", paste0("spec.", colnames(datC$spcARmovav)))
+## prepare calibration data
+rawCsub = data.frame(plastMass = rawC$MASS_mg, rawC$spcA)
+colnames(rawCsub) = c("plastMass", paste0("spec.", colnames(rawC$spcA)))
 
 datCsub2 = data.frame(plastMass = datC$MASS_mg, datC$spcA)
 colnames(datCsub2) = c("plastMass", paste0("spec.", colnames(datC$spcA)))
 
-
 datCsub3 = data.frame(plastMass = datC$MASS_mg, datC$spcAmovav)
 colnames(datCsub3) = c("plastMass", paste0("spec.", colnames(datC$spcAmovav)))
 
-rawCsub = data.frame(plastMass = rawC$MASS_mg, rawC$spcA)
-colnames(rawCsub) = c("plastMass", paste0("spec.", colnames(rawC$spcA)))
+datCsub4 = data.frame(plastMass = datC$MASS_mg, datC$spcARmovav)
+colnames(datCsub) = c("plastMass", paste0("spec.", colnames(datC$spcARmovav)))
 
-# same tests as in PLSR...
+
+### same tests as in PLSR...
 set.seed(1)
 
 RF_mod_mass = randomForest(plastMass ~ .,
-                           data = datCsub,
+                           data = rawCsub,
                            ntree = 150,
                            mtry = 10,
                            importance = T,
@@ -163,11 +189,23 @@ RF_mod_mass3 = randomForest(plastMass ~ .,
                            na.action = na.omit)
 
 RF_mod_mass4 = randomForest(plastMass ~ .,
-                            data = rawCsub,
+                            data = datCsub4,
                             ntree = 150,
                             mtry = 10,
                             importance = T,
                             na.action = na.omit)
+
+
+
+
+
+#
+# LAST EDITED: 2026-09-29; 11h14
+#
+
+
+
+
 
 # DOESN'T LOOK SO GOOD
 
