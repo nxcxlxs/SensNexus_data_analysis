@@ -164,7 +164,7 @@ datCsub4 = data.frame(plastMass = datC$MASS_mg, datC$spcARmovav)
 colnames(datCsub) = c("plastMass", paste0("spec.", colnames(datC$spcARmovav)))
 
 
-### same tests as in PLSR...
+# same tests as in PLSR...
 set.seed(1)
 
 RF_mod_mass = randomForest(plastMass ~ .,
@@ -195,85 +195,21 @@ RF_mod_mass4 = randomForest(plastMass ~ .,
                             importance = T,
                             na.action = na.omit)
 
-
-
-
-
-#
-# LAST EDITED: 2026-09-29; 11h14
-#
-
-
-
-
-
-# DOESN'T LOOK SO GOOD
-
-# rownames(RF_mod_mass$importance) = paste0(gsub("spec\\.", "",
-#                                                rownames(RF_mod_mass$importance)), " nm")
-# rownames(RF_mod_mass2$importance) = paste0(gsub("spec\\.", "",
-#                                                 rownames(RF_mod_mass2$importance)), " nm")
-# rownames(RF_mod_mass3$importance) = paste0(gsub("spec\\.", "",
-#                                                 rownames(RF_mod_mass3$importance)), " nm")
-# rownames(RF_mod_mass4$importance) = paste0(gsub("spec\\.", "",
-#                                                 rownames(RF_mod_mass4$importance)), " nm")
-
-
-rownames(RF_mod_mass$importance) = paste0(gsub("nm", "",
-                                               rownames(RF_mod_mass$importance)), "")
-
-rownames(RF_mod_mass2$importance) = paste0(gsub("nm", "",
-                                               rownames(RF_mod_mass2$importance)), "")
-
-rownames(RF_mod_mass3$importance) = paste0(gsub("nm", "",
-                                               rownames(RF_mod_mass3$importance)), "")
-
-rownames(RF_mod_mass4$importance) = paste0(gsub("nm", "",
-                                               rownames(RF_mod_mass4$importance)), "")
-
-par(mfrow = c(2, 2), mar = c(4, 6, 5, 2))
-par(cex.main = 1.8,      # title size
-    cex.lab = 2,     # axis label size
-    cex.axis = 1.5,
-    mgp = c(2.7, 1, 0))
-
-varImpPlot(RF_mod_mass4,
-           type = 1,
-           pch = 1,
-           main = "Model 1")
-title(ylab = "Wavelenghts (nm)", line = 3.5)
-
-
-varImpPlot(RF_mod_mass2,
-           type = 1,
-           main = "Model 2")
-
-varImpPlot(RF_mod_mass3,
-           type = 1,
-           main = "Model 3")
-title(ylab = "Wavelenghts (nm)", line = 3.5)
-
-varImpPlot(RF_mod_mass,
-           type = 1,
-           main = "Model 4")
-
-
-varImpPlot(RF_mod_mass4, type = 2, main = "Model 1")
-varImpPlot(RF_mod_mass2, type = 2, main = "Model 2")
-varImpPlot(RF_mod_mass3, type = 2, main = "Model 3")
-varImpPlot(RF_mod_mass,  type = 2, main = "Model 4")
-
-impPlot4 = varImpPlot(RF_mod_mass, main = "Model 4")
+## variables importance
+### plots
+impPlot = varImpPlot(RF_mod_mass, main = "Model 4")
 impPlot2 = varImpPlot(RF_mod_mass2, main = "Model 2")
 impPlot3 = varImpPlot(RF_mod_mass3, main = "Model 3")
-impPlot1 = varImpPlot(RF_mod_mass4, main = "Model 1")
+impPlot4 = varImpPlot(RF_mod_mass4, main = "Model 1")
 
+### values inspection
 head(impPlot1[order(impPlot1[,"%IncMSE"], decreasing = TRUE), ], 30)
 head(impPlot1[order(impPlot1[,"IncNodePurity"], decreasing = TRUE), ], 30)
 
+
 # prepare validation data
-datVsub = data.frame(plastMass = datV$MASS_mg, datV$spcARmovav)
-colnames(datVsub) = c("plastMass", paste0("spec.", colnames(datV$spcARmovav)))
+rawVsub = data.frame(plastMass = rawV$MASS_mg, rawV$spcA)
+colnames(rawVsub) = c("plastMass", paste0("spec.", colnames(rawV$spcA)))
 
 datVsub2 = data.frame(plastMass = datV$MASS_mg, datV$spcA)
 colnames(datVsub2) = c("plastMass", paste0("spec.", colnames(datV$spcA)))
@@ -282,69 +218,69 @@ colnames(datVsub2) = c("plastMass", paste0("spec.", colnames(datV$spcA)))
 datVsub3 = data.frame(plastMass = datV$MASS_mg, datV$spcAmovav)
 colnames(datVsub3) = c("plastMass", paste0("spec.", colnames(datV$spcAmovav)))
 
-rawVsub = data.frame(plastMass = rawV$MASS_mg, rawV$spcA)
-colnames(rawVsub) = c("plastMass", paste0("spec.", colnames(rawV$spcA)))
+datVsub4 = data.frame(plastMass = datV$MASS_mg, datV$spcARmovav)
+colnames(datVsub) = c("plastMass", paste0("spec.", colnames(datV$spcARmovav)))
 
-# prepare new data (external validation)
-new_sub = data.frame(plastMass = new$MASS_mg, new$spcARmovav)
-colnames(new_sub) = c("plastMass", paste0("spec.", colnames(new$spcARmovav)))
-
-new_sub2 = data.frame(plastMass = new$MASS_mg, new$spcA)
-colnames(new_sub2) = c("plastMass", paste0("spec.", colnames(new$spcA)))
-
-new_sub3 = data.frame(plastMass = new$MASS_mg, new$spcAmovav)
-colnames(new_sub3) = c("plastMass", paste0("spec.", colnames(new$spcAmovav)))
-
-new_sub4 = data.frame(plastMass = raw_new$MASS_mg, raw_new$spcA)
-colnames(new_sub4) = c("plastMass", paste0("spec.", colnames(raw_new$spcA)))
 
 # predictions
 ## calibration
-RFpredC = predict(RF_mod_mass, datCsub)
+RFpredC = predict(RF_mod_mass, rawCsub)
 RFpredC2 = predict(RF_mod_mass2, datCsub2)
 RFpredC3 = predict(RF_mod_mass3, datCsub3)
-RFpredC4 = predict(RF_mod_mass4, rawCsub)
+RFpredC4 = predict(RF_mod_mass4, datCsub4)
 
 ## validation
-RFpredV = predict(RF_mod_mass, datVsub)
+RFpredV = predict(RF_mod_mass, rawVsub)
 RFpredV2 = predict(RF_mod_mass2, datVsub2)
 RFpredV3 = predict(RF_mod_mass3, datVsub3)
-RFpredV4 = predict(RF_mod_mass4, rawVsub)
-
-## external
-RFpred_new = predict(RF_mod_mass, new_sub)
-RFpred_new2 = predict(RF_mod_mass2, new_sub2)
-RFpred_new3 = predict(RF_mod_mass3, new_sub3)
-RFpred_new4 = predict(RF_mod_mass4, new_sub4)
+RFpredV4 = predict(RF_mod_mass4, datVsub4)
 
 
-### plot calibration
-par(mfrow = c(1, 2))
+# ## plots
+# par(mfrow = c(1, 2))
+# 
+# plot(log(datC$MASS_mg), log(RFpredC),
+#      main = "Calibration",
+#      xlab = "log(Observed)",
+#      ylab = "log(Predicted)",
+#      ylim = c(0, 10),
+#      xlim = c(0, 10),
+#      pch = 16) +
+#   abline(0, 1)
+# 
+# plot(log(datV$MASS_mg), log(RFpredV),
+#      main = "Validation",
+#      xlab = "log(Observed)",
+#      ylab = "log(Predicted)",
+#      ylim = c(0, 10),
+#      pch = 16) +
+#   abline(0, 1)
 
-plot(log(datC$MASS_mg), log(RFpredC),
-     main = "Calibration",
-     xlab = "log(Observed)",
-     ylab = "log(Predicted)",
-     ylim = c(0, 10),
-     xlim = c(0, 10),
-     pch = 16) +
-  abline(0, 1)
 
-### plot validation
-plot(log(datV$MASS_mg), log(RFpredV),
-     main = "Validation",
-     xlab = "log(Observed)",
-     ylab = "log(Predicted)",
-     ylim = c(0, 10),
-     pch = 16) +
-  abline(0, 1)
+# set validation statistics ===================================================#
+ME = function(obs, pred){
+  mean(pred - obs, na.rm = T)
+}
+
+RMSE = function(obs, pred){
+  sqrt(mean((pred - obs)^2, na.rm = T))
+}
+
+R2 = function(obs, pred){
+  SSE = sum((pred - obs)^2, na.rm = T) # squared sum error
+  SST = sum((obs - mean(obs, na.rm = T))^2, na.rm = T) # squares sum total
+  R2 = 1 - SSE / SST
+  return(R2)
+}
+#==============================================================================#
+
 
 # evaluate quality of predictions
 ## observed responses
-calib_obs = list(datCsub$plastMass, datCsub2$plastMass,
-                      datCsub3$plastMass, rawCsub$plastMass)
-valid_obs = list(datVsub$plastMass, datVsub2$plastMass,
-                      datVsub3$plastMass, rawVsub$plastMass)
+calib_obs = list(rawCsub$plastMass, datCsub2$plastMass,
+                      datCsub3$plastMass, datCsub4$plastMass)
+valid_obs = list(rawVsub$plastMass, datVsub2$plastMass,
+                      datVsub3$plastMass, datVsub4$plastMass)
 
 ## group calibration predictions
 calib_preds = list(RFpredC, RFpredC2, RFpredC3, RFpredC4)
@@ -383,85 +319,10 @@ for (i in seq_along(calib_preds)) {
   cat(sprintf("R²   : %.4f\n", valid_stats["R2", i]))
 } 
 
-#### EXTERNAL VALIDATION (colored rigid household plastics dataset)
-external_obs = list(new_sub$plastMass, new_sub2$plastMass,
-                    new_sub3$plastMass, new_sub4$plastMass)
-external_preds = list(RFpred_new, RFpred_new2, RFpred_new3, RFpred_new4)
-
-external_stats = mapply(function(obs, pred) {
-  c(
-    ME   = ME(obs, pred),
-    RMSE = RMSE(obs, pred),
-    R2   = R2(obs, pred)
-  )
-}, external_obs, external_preds)
-
-for (i in seq_along(external_preds)) {
-  cat(paste0("\n======= MODEL ", i, " =======\n"))
-  cat(sprintf("ME   : %.7f\n", external_stats["ME", i]))
-  cat(sprintf("RMSE : %.7f\n", external_stats["RMSE", i]))
-  cat(sprintf("R²   : %.7f\n", external_stats["R2", i]))
-}
-
-# ## calibration
-# ME(rawC$MASS_mg, RFpredC4)
-# RMSE(rawC$MASS_mg, RFpredC4)
-# R2(rawC$MASS_mg, RFpredC4)
-# residC = RFpredC4 - rawC$MASS_mg # absolute residual = real error
-# residClog = log(RFpredC4) - log(rawC$MASS_mg) # log residual = relative error (emphasizes all scales equally)
-# boxplot(residClog ~ rawC$MASS_mg,
-#         main = "Residuals by Mass (Calibration)") # absolute residuals overemphasize
-#                                                   # large errors at higher response values
-# 
-# ## validation
-# ME(rawV$MASS_mg, RFpredV4)
-# RMSE(rawV$MASS_mg, RFpredV4)
-# R2(rawV$MASS_mg, RFpredV4)
-# residV = RFpredV4 - rawV$MASS_mg
-# residVlog = log(RFpredV4) - log(rawV$MASS_mg)
-# boxplot(residVlog ~ rawV$MASS_mg,
-#         main = "Residuals by Mass (Validation)")
-
-
-# residuals boxplots
-## calibration
-residC = RFpredC - datC$MASS_mg
-residC2 = RFpredC2 - datC$MASS_mg
-residC3 = RFpredC3 - datC$MASS_mg
-residC4 = RFpredC4 - rawC$MASS_mg
-
-residClog = log(RFpredC) - log(datC$MASS_mg)
-residClog2 = log(RFpredC2) - log(datC$MASS_mg)
-residClog3 = log(RFpredC3) - log(datC$MASS_mg)
-residClog4 = log(RFpredC4) - log(rawC$MASS_mg)
-
-par(mfrow = c(1, 2))
-boxplot(residC ~ datC$MASS_mg,
-        main = "Residuals by Mass (Calibration)")
-
-boxplot(residClog ~ datC$MASS_mg, # ATTENTION to the log transformation
-        main = "Relative residuals by Mass (Calibration)")
-
-## validation
-residV = RFpredV - datV$MASS_mg
-residV2 = RFpredV2 - datV$MASS_mg
-residV3 = RFpredV3 - datV$MASS_mg
-residV4 = RFpredV4 - rawV$MASS_mg
-
-residVlog = log(RFpredV) - log(datV$MASS_mg)
-residVlog2 = log(RFpredV2) - log(datV$MASS_mg)
-residVlog3 = log(RFpredV3) - log(datV$MASS_mg)
-residVlog4 = log(RFpredV4) - log(rawV$MASS_mg)
-
-boxplot(residV ~ datV$MASS_mg,
-        main = "Residuals by Mass (Validation)")
-
-boxplot(residVlog ~ datV$MASS_mg,
-        main = "Relative residuals by Mass (Validation)")
 
 ################################################################################
-
-# 10-fold cross-validation
+#                            K-FOLD CROSS-VALIDATION                           #
+################################################################################
 cv_random_forest = function(data, spc_matrix,  ntree = 150,
                             mtry = 10, nfolds = 4, seed = 1) {
   set.seed(seed)
@@ -521,6 +382,17 @@ for (i in seq_along(cv_results)) {
   cat(sprintf("RMSE : %.4f\n", cv_results[[i]]$RMSE))
   cat(sprintf("R²   : %.4f\n", cv_results[[i]]$R2))
 }
+
+
+
+#
+#
+# LAST EDITING 2026-09-29
+#       14h41
+#
+#
+
+
 
 ################################################################################
 
