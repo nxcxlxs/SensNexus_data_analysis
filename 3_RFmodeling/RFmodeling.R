@@ -587,49 +587,47 @@ for (model_name in names(spectral_preproc_list_ext)) {
 ext_results = do.call(rbind, ext_results)
 
 t1 = Sys.time()
-cat("Training time:", round(t1 - t0, 2), "minutes\n")
+cat("Training time:", difftime(t1, t0, units = "mins"))
 
 
 ## check optima parameters
-ext_results |> 
+best_param =
+  ext_results |> 
   group_by(Model) |> 
   filter(RMSE == min(RMSE))
-
-ext_results |>
-  group_by(Model) |>
-  filter(abs(ME) == min(abs(ME)))
 #==============================================================================#
 
-
-## tuned models
+# tuned models
 RF_mod_tuned = randomForest(plastMass ~ .,
                             data = rawFULL,
-                            ntree = 200,
-                            mtry = 70,
+                            ntree = best_param$ntree[1],
+                            mtry = best_param$mtry[1],
                             importance = T,
                             na.action = na.omit)
 
 RF_mod_tuned2 = randomForest(plastMass ~ .,
                              data = dataFULL2,
-                             ntree = 250,
-                             mtry = 50,
+                             ntree = best_param$ntree[2],
+                             mtry = best_param$mtry[2],
                              importance = T,
                              na.action = na.omit)
 
 RF_mod_tuned3 = randomForest(plastMass ~ .,
                              data = dataFULL3,
-                             ntree = 150,
-                             mtry = 80,
+                             ntree = best_param$ntree[3],
+                             mtry = best_param$mtry[3],
                              importance = T,
                              na.action = na.omit)
 
 RF_mod_tuned4 = randomForest(plastMass ~ .,
                              data = dataFULL4,
-                             ntree = 100,
-                             mtry = 50,
+                             ntree = best_param$ntree[4],
+                             mtry = best_param$mtry[4],
                              importance = T,
                              na.action = na.omit)
 
+
+## final predictions
 RFpred_tuned = predict(RF_mod_tuned, raw_new2_M1)
 RFpred_tuned2 = predict(RF_mod_tuned2, new2_M2)
 RFpred_tuned3 = predict(RF_mod_tuned3, new2_M3)
@@ -714,7 +712,6 @@ res = ggplot(plot_data, aes(x = factor(Observed_Mass), y = Residual)) +
         axis.text.y = element_text(size = 12),
         strip.text = element_text(size = 11),
         axis.title.y = element_text(size = 13))
-#==============================================================================#
 
 
 # data frames for relative residuals (log scale)
