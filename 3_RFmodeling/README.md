@@ -41,7 +41,7 @@ any modelling, and stored as `spcA`.
 | M1    | Raw data                   | `spcA` (raw objects) | Absorbance only |
 | M2    | Minimal preprocessing      | `spcA` (denoised)    | Denoised spectra from `spectra_processing.R` |
 | M3    | Intermediate preprocessing | `spcAmovav`          | M2 + SNV + moving average (`w = 11`) |
-| M4    | Full preprocessing         | `spcARmovav`         | M2 + 5 nm resampling + SNV + moving average (`w = 11`) |
+| M4    | Full preprocessing         | `spcARmovav`         | M3 + 5 nm resampling |
 
 The resampling wavelength axis (`newWavs`) is built from the pristine
 wavelengths and reused for the colored samples, which therefore share the
@@ -60,7 +60,6 @@ All models use `randomForest::randomForest()` with the formula
 | `ntree`        | 150                 | 100, 150, 200, 250, 500 (grid)          |
 | `mtry`         | 10                  | 5 to 100, 13 values (grid)              |
 
-Random seeds are set explicitly before the fits.
 ---
 
 ## Part 1 — 75/25 Hold-out
@@ -132,19 +131,23 @@ For each treatment, a pristine-trained RF is fitted for every combination in
 and used to predict `colored1`. ME, RMSE and R² are stacked in `ext_results`.
 The best combination per model is inspected with two criteria:
 
-- lowest RMSE;
-- lowest absolute ME.
-
-The selected values are then hard-coded in the tuned models:
-
-| Model | `ntree` | `mtry` |
-|---|---|---|
-| M1    | 200     | 70     |
-| M2    | 250     | 50     |
-| M3    | 150     | 80     |
-| M4    | 100     | 50     |
+The best combination per model is the one with the **lowest RMSE** and is stored
+in `best_param` (one row per model, ordered M1 to M4). The tuned models read
+`ntree` and `mtry` directly from `best_param`.
 
 The search loop takes time to run; the elapsed time is printed at the end.
+
+> **Note on ties.** `best_param` is built with `filter(RMSE == min(RMSE))`,
+> which keeps *every* combination that shares the minimum RMSE within a model.
+> An exact tie is unlikely with continuous RMSE values, but it is possible
+> (for example, when `mtry` values above the number of predictors are capped by
+> `randomForest` and yield equivalent models). If a tie occurs, `best_param`
+> will contain more than four rows, and because the tuned models read
+> `best_param$ntree[i]` and `best_param$mtry[i]` by **position** (1 to 4), the
+> parameters of the following models would be misaligned, silently. Check that
+> `nrow(best_param) == 4` (or `table(best_param$Model)`) before fitting the
+> tuned models, and break ties explicitly if needed (e.g.
+> `slice_min(RMSE, n = 1, with_ties = FALSE)`).
 
 ### Final evaluation
 
@@ -185,6 +188,7 @@ plotted in R:
 | `cv_results`                 | ME, RMSE, R² and prediction tables from k-fold CV |
 | `external_stats`             | ME, RMSE and R² for the naive external validation |
 | `ext_results`                | `ntree`/`mtry` grid search results for every model |
+| `best_param`                 | Selected `ntree`/`mtry` (lowest RMSE) per model |
 | `tuned_stats`                | ME, RMSE and R² of the tuned models on `colored2` |
 | `res`, `res2`                | Absolute and relative residual boxplots |
 
