@@ -587,7 +587,7 @@ for (model_name in names(spectral_preproc_list_ext)) {
 ext_results = do.call(rbind, ext_results)
 
 t1 = Sys.time()
-cat("Training time:", difftime(t1, t0, units = "mins"))
+cat("Training time:", format(difftime(t1, t0, units = "mins")), "\n")
 
 
 ## check optima parameters
