@@ -137,7 +137,7 @@ in `best_param` (one row per model, ordered M1 to M4). The tuned models read
 
 The search loop takes time to run; the elapsed time is printed at the end.
 
-> **Note on ties.** `best_param` is built with `filter(RMSE == min(RMSE))`,
+> **Note on ties:** `best_param` is built with `filter(RMSE == min(RMSE))`,
 > which keeps *every* combination that shares the minimum RMSE within a model.
 > An exact tie is unlikely with continuous RMSE values, but it is possible
 > (for example, when `mtry` values above the number of predictors are capped by
