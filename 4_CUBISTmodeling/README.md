@@ -141,8 +141,7 @@ used to predict `colored1` with every `neighbors` value (7 values), giving
 
 The best combination per model is the one with the **lowest RMSE** and is stored
 in `best_param` (one row per model, ordered M1 to M4). The tuned models read
-`committees` and `neighbors` directly from `best_param`, so the tuned parameters
-are not hard-coded.
+`committees` and `neighbors` directly from `best_param`.
 
 The search loop takes time to run; the elapsed time is printed at the end.
 
