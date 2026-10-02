@@ -43,7 +43,7 @@ any modelling, and stored as `spcA`.
 | M1    | Raw data                   | `spcA` (raw objects) | Absorbance only |
 | M2    | Minimal preprocessing      | `spcA` (denoised)    | Denoised spectra from `spectra_processing.R` |
 | M3    | Intermediate preprocessing | `spcAmovav`          | M2 + SNV + moving average (`w = 11`) |
-| M4    | Full preprocessing         | `spcARmovav`         | M2 + 5 nm resampling + SNV + moving average (`w = 11`) |
+| M4    | Full preprocessing         | `spcARmovav`         | M3 + 5 nm resampling |
 
 The resampling wavelength axis (`newWavs`) is built from the pristine
 wavelengths and reused for the colored samples, which therefore share the
