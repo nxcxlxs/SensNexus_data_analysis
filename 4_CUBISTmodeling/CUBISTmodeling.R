@@ -1,8 +1,6 @@
 require(prospectr)
 require(dplyr)
 require(Cubist)
-require(ggplot2)
-require(patchwork)
 
 
 # load processed data
@@ -158,7 +156,7 @@ CUB_mod_mass3 = cubist(datC$spcAmovav, datC$MASS_mg)
 
 CUB_mod_mass4 = cubist(datC$spcARmovav, datC$MASS_mg)
 
-# check models dimensionality (mosty important wavelengths)
+# check models dimensionality (most important wavelengths)
 sum(varImp(CUB_mod_mass) > 0)
 sum(varImp(CUB_mod_mass2) > 0)
 sum(varImp(CUB_mod_mass3) > 0)
@@ -199,9 +197,9 @@ R2 = function(obs, pred){
 
 # evaluate quality of predictions
 ## observed responses
-calib_obs = c(rep(list(datC$MASS_mg), 3), list(rawC$MASS_mg))
+calib_obs = c(list(rawC$MASS_mg), rep(list(datC$MASS_mg), 3))
 
-valid_obs = c(rep(list(datV$MASS_mg), 3), list(rawV$MASS_mg))
+valid_obs = c(list(rawV$MASS_mg), rep(list(datV$MASS_mg), 3))
 
 ## group calibration predictions
 calib_preds = list(CUBpredC, CUBpredC2, CUBpredC3, CUBpredC4)
@@ -253,7 +251,7 @@ cv_cubist_model = function(data, spc_matrix, committees = 1, neighbors = 0,
   min_stratum_size = min(table(strata))
   
   if (nfolds > min_stratum_size) {
-    cat("Note: Minimum stratum size is", min_stratum_size)
+    cat("Note: Minimum stratum size was changed to", min_stratum_size, "\n")
     nfolds = min_stratum_size
   }
   
@@ -396,11 +394,11 @@ spectral_preproc_list_ext = list(
   M1 = list(train_x = pristine_raw$spcA, train_y = pristine_raw$MASS_mg,
             new_x = colored_raw1$spcA, new_y = colored_raw1$MASS_mg),
   M2 = list(train_x = pristine$spcA, train_y = pristine$MASS_mg,
-            new_x = colored_raw1$spcA, new_y = colored_raw1$MASS_mg),
+            new_x = colored1$spcA, new_y = colored1$MASS_mg),
   M3 = list(train_x = pristine$spcAmovav, train_y = pristine$MASS_mg,
-            new_x = colored_raw1$spcAmovav, new_y = colored_raw1$MASS_mg),
+            new_x = colored1$spcAmovav, new_y = colored1$MASS_mg),
   M4 = list(train_x = pristine$spcARmovav, train_y = pristine$MASS_mg,
-            new_x = colored_raw1$spcARmovav, new_y = colored_raw1$MASS_mg)
+            new_x = colored1$spcARmovav, new_y = colored1$MASS_mg)
 )
 
 
@@ -450,7 +448,7 @@ t1 = Sys.time()
 cat("Training time:", format(difftime(t1, t0, units = "mins")), "\n")
 
 
-## check optima parameteres
+## check optima parameters
 best_param =
   ext_results |> 
   group_by(Model) |> 
@@ -459,183 +457,53 @@ best_param =
 
 # tuned models
 # M1
-CUB_ext_tuned = cubist(raw$spcA,
-                       raw$MASS_mg,
-                       committees = 1) # best_param$committes[1]
+CUB_ext_tuned = cubist(pristine_raw$spcA,
+                       pristine_raw$MASS_mg,
+                       committees = best_param$committees[1])
 
-CUBpred_ext = predict(CUB_ext_tuned, newdata = raw_new2$spcA, neighbors = 5) # best_param$neighbors[1]
+CUBpred_ext = predict(CUB_ext_tuned, newdata = colored_raw2$spcA,
+                      neighbors = best_param$neighbors[1])
 cat(paste0("\n======= CUBIST MODEL 1 (fine-tuned) =======\n",
-           sprintf("ME   : %.2f\n", ME(raw_new2$MASS_mg, CUBpred_ext)),
-           sprintf("RMSE : %.2f\n", RMSE(raw_new2$MASS_mg, CUBpred_ext)),
-           sprintf("R²   : %.2f\n", R2(raw_new2$MASS_mg, CUBpred_ext))
+           sprintf("ME   : %.2f\n", ME(colored_raw2$MASS_mg, CUBpred_ext)),
+           sprintf("RMSE : %.2f\n", RMSE(colored_raw2$MASS_mg, CUBpred_ext)),
+           sprintf("R²   : %.2f\n", R2(colored_raw2$MASS_mg, CUBpred_ext))
            ))
 
 # M2
-CUB_ext_tuned2 = cubist(data$spcA,
-                        data$MASS_mg,
-                        committees = 100)
+CUB_ext_tuned2 = cubist(pristine$spcA,
+                        pristine$MASS_mg,
+                        committees = best_param$committees[2])
 
-CUBpred_ext2 = predict(CUB_ext_tuned2, newdata = new2$spcA, neighbors = 1)
+CUBpred_ext2 = predict(CUB_ext_tuned2, newdata = colored2$spcA,
+                       neighbors = best_param$neighbors[2])
 cat(paste0("\n======= CUBIST MODEL 2 (fine-tuned) =======\n",
-           sprintf("ME   : %.2f\n", ME(new2$MASS_mg, CUBpred_ext2)),
-           sprintf("RMSE : %.2f\n", RMSE(new2$MASS_mg, CUBpred_ext2)),
-           sprintf("R²   : %.2f\n", R2(new2$MASS_mg, CUBpred_ext2))
+           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, CUBpred_ext2)),
+           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, CUBpred_ext2)),
+           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, CUBpred_ext2))
            ))
 
 # M3
-CUB_ext_tuned3 = cubist(data$spcAmovav,
-                        data$MASS_mg,
-                        committees = 50)
+CUB_ext_tuned3 = cubist(pristine$spcAmovav,
+                        pristine$MASS_mg,
+                        committees = best_param$committees[3])
 
-CUBpred_ext3 = predict(CUB_ext_tuned3, newdata = new2$spcAmovav, neighbors = 9)
+CUBpred_ext3 = predict(CUB_ext_tuned3, newdata = colored2$spcAmovav,
+                       neighbors = best_param$neighbors[3])
 cat(paste0("\n======= CUBIST MODEL 3 (fine-tuned) =======\n",
-           sprintf("ME   : %.2f\n", ME(new2$MASS_mg, CUBpred_ext3)),
-           sprintf("RMSE : %.2f\n", RMSE(new2$MASS_mg, CUBpred_ext3)),
-           sprintf("R²   : %.2f\n", R2(new2$MASS_mg, CUBpred_ext3))
+           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, CUBpred_ext3)),
+           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, CUBpred_ext3)),
+           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, CUBpred_ext3))
            ))
 
 # M4
-CUB_ext_tuned4 = cubist(data$spcARmovav,
-                        data$MASS_mg,
-                        committees = 50)
+CUB_ext_tuned4 = cubist(pristine$spcARmovav,
+                        pristine$MASS_mg,
+                        committees = best_param$committees[4])
 
-CUBpred_ext4 = predict(CUB_ext_tuned4, newdata = new2$spcARmovav, neighbors = 7)
+CUBpred_ext4 = predict(CUB_ext_tuned4, newdata = colored2$spcARmovav,
+                       neighbors = best_param$neighbors[4])
 cat(paste0("\n======= CUBIST MODEL 4 (fine-tuned) =======\n",
-           sprintf("ME   : %.2f\n", ME(new2$MASS_mg, CUBpred_ext4)),
-           sprintf("RMSE : %.2f\n", RMSE(new2$MASS_mg, CUBpred_ext4)),
-           sprintf("R²   : %.2f\n", R2(new2$MASS_mg, CUBpred_ext4))
+           sprintf("ME   : %.2f\n", ME(colored2$MASS_mg, CUBpred_ext4)),
+           sprintf("RMSE : %.2f\n", RMSE(colored2$MASS_mg, CUBpred_ext4)),
+           sprintf("R²   : %.2f\n", R2(colored2$MASS_mg, CUBpred_ext4))
            ))
-
-
-#
-#
-# LAST EDITING 2026-10-02
-#        17h21
-#
-#
-
-
-
-# 
-# # residual visualization
-# residLEAK = CUBpred_full - new$MASS_mg
-# residLEAK2 = CUBpred_full2 - new$MASS_mg
-# residLEAK3 = CUBpred_full3 - new$MASS_mg
-# residLEAK4 = CUBpred_full4 - raw_new$MASS_mg
-# 
-# residLEAKlog = log(CUBpred_full) - log(new$MASS_mg)
-# residLEAKlog2 = log(CUBpred_full2) - log(new$MASS_mg)
-# residLEAKlog3 = log(CUBpred_full3) - log(new$MASS_mg)
-# residLEAKlog4 = log(CUBpred_full4) - log(raw_new$MASS_mg)
-# 
-# # ggplot(new, aes(x = factor(MASS_mg), y = residLEAK2)) +
-# #     geom_boxplot() +
-# #     labs(title = "MODEL 2",
-# #          x = "Mass (mg)",
-# #          y = "Residuals")
-# # 
-# # ggplot(new, aes(x = factor(MASS_mg), y = residLEAKlog4)) +
-# #     geom_boxplot() +
-# #     labs(title = "MODEL 2",
-# #          x = "Mass (mg)",
-# #          y = "Relative residuals")
-# 
-# # data frame for each model, ensuring the correct 'Observed_Mass' is used
-# df_m1 = data.frame(
-#   Model = "M1 (Raw data)",
-#   Observed_Mass = raw_new$MASS_mg, # M1 uses raw_new
-#   Residual = residLEAK4  # M1 = residLEAK4
-# )
-# 
-# df_m2 = data.frame(
-#   Model = "M2 (Minimal preprocessing)",
-#   Observed_Mass = new$MASS_mg, # M2 uses new
-#   Residual = residLEAK2
-# )
-# 
-# df_m3 = data.frame(
-#   Model = "M3 (Intermediate preprocessing)",
-#   Observed_Mass = new$MASS_mg, # M3 uses new
-#   Residual = residLEAK3
-# )
-# 
-# df_m4 = data.frame(
-#   Model = "M4 (Full preprocessing)",
-#   Observed_Mass = raw_new$MASS_mg, # M4 uses raw_new
-#   Residual = residLEAK  # M4 = residLEAK
-# )
-# 
-# # combine data frames
-# require(dplyr)
-# plot_data = bind_rows(df_m1, df_m2, df_m3, df_m4)
-# 
-# # model factor in correct order of complexity
-# model_order = c("M1 (Raw data)", "M2 (Minimal preprocessing)",
-#                 "M3 (Intermediate preprocessing)", "M4 (Full preprocessing)")
-# plot_data$Model = factor(plot_data$Model, levels = model_order)
-# 
-# 
-# # combined boxplot
-# require(ggplot2)
-# res = ggplot(plot_data, aes(x = factor(Observed_Mass), y = Residual)) +
-#   geom_boxplot(outlier.size = 0.8) +
-#   geom_hline(yintercept = 0, linetype = "dashed", color = "red", alpha = 0.7) +
-#   facet_wrap(~ Model, ncol = 2) +
-#   labs(
-#     x = NULL,
-#     y = "Residuals (Predicted - Observed Mass)",
-#     title = NULL
-#   ) +
-#   theme(axis.text.x = element_blank(),
-#         axis.ticks.x = element_blank())
-# 
-# #===============================================================================
-# 
-# # data frames for relative residuals (log scale)
-# df_m1_log = data.frame(
-#   Model = "M1 (Raw data)",
-#   Observed_Mass = raw_new$MASS_mg,
-#   Relative_Residual = residLEAKlog4  # M1 = residLEAKlog4
-# )
-# 
-# df_m2_log = data.frame(
-#   Model = "M2 (Minimal preprocessing)", 
-#   Observed_Mass = new$MASS_mg,
-#   Relative_Residual = residLEAKlog2
-# )
-# 
-# df_m3_log = data.frame(
-#   Model = "M3 (Intermediate preprocessing)",
-#   Observed_Mass = new$MASS_mg, 
-#   Relative_Residual = residLEAKlog3
-# )
-# 
-# df_m4_log = data.frame(
-#   Model = "M4 (Full preprocessing)",
-#   Observed_Mass = raw_new$MASS_mg,
-#   Relative_Residual = residLEAKlog  # M4 = residLEAKlog
-# )
-# 
-# # combine and process
-# plot_data_log = bind_rows(df_m1_log, df_m2_log, df_m3_log, df_m4_log)
-# 
-# 
-# # set factor order
-# model_order = c("M1 (Raw data)", "M2 (Minimal preprocessing)",
-#                 "M3 (Intermediate preprocessing)", "M4 (Full preprocessing)")
-# 
-# # relative residuals plot
-# res2 = ggplot(plot_data_log, aes(x = factor(Observed_Mass), y = Relative_Residual)) +
-#   geom_boxplot(outlier.size = 0.8) +
-#   geom_hline(yintercept = 0, linetype = "dashed", color = "red", alpha = 0.7) +
-#   facet_wrap(~ Model, ncol = 2) +
-#   labs(
-#     x = "Mass (mg)",
-#     y = "Relative Residuals [log(Predicted) - log(Observed)]",
-#     title = NULL)
-# 
-# require(patchwork)
-# 
-# res / res2 + plot_annotation(tag_levels = 'a',
-#                              tag_prefix = '(',
-#                              tag_suffix = ')')
