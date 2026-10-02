@@ -1,3 +1,5 @@
+<p align="center"><img src="C:\Users\nicolas\Documents\GitHub\SensNexus_data_analysis\assinatura_sensnexus.png" width="400" alt="Description"></p>
+
 # Microplastic Mass Prediction in Soil from Vis-NIR-SWIR Spectra
 
 ## Overview
