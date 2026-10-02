@@ -99,7 +99,7 @@ each algorithm is the number of components (PLSR), `ntree` and `mtry` (RF), and
   note on ties in the corresponding READMEs.
 - Residual plots are produced for PLSR and RF. They were omitted for Cubist
   because it failed in our main experiment.
-- `#006400`**100% artisanal, organic code🌱🌿♻️** <br>
+- <span style="color: darkgreen;">**100% artisanal, organic code🌱🌿♻️**</span> <br>
   Written by hand, by someone who is learning on the go,
   so it is definitely *not* the most elegant or efficient.
 
