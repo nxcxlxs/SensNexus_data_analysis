@@ -35,13 +35,26 @@ In the pristine design, combinations already prepared in an earlier round
 combinations — so ID order reflects preparation order, not just the
 factorial order.
 
-`SAMPLE_CODE` encodes polymer, size class, mass, and replicate, e.g.
-`PVC_A1.2_1` (pristine) or `MIX_A3750_1` (colored), where the size letter
-comes from:
+**`SAMPLE_CODE`** format: `POLYMER_[SIZE][MASS]_REPLICATE`, built from the experimental factors below. Colored mixtures use the prefix `MIX` (stored as `ALL` in the `POLYMER` column).
 
 ```r
+# pristine design
+polymers   = c("PP", "PVC", "PET", "PE")
+sizes_mm   = c("4.80–1.00", "1.00–0.60", "0.60–0.053")
+masses_mg  = c("3750", "750", "150", "30", "6", "1.2")
+replicates = 1:4
+
+# colored design
+polymers   = c("ALL")
+sizes_mm   = c("4.80–1.00", "1.00–0.60", "0.60–0.053")
+masses_mg  = c("3750", "750", "150", "30", "6")
+replicates = 1:4
+
+# size code used in SAMPLE_CODE
 size_code_map = c("4.80–1.00" = "A", "1.00–0.60" = "B", "0.60–0.053" = "C")
 ```
+
+Examples: `PVC_A1.2_1` (pristine), `MIX_A3750_1` (colored).
 
 Each script writes its design to a CSV under `raw_spectra/`.
 
