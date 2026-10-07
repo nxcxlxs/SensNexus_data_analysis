@@ -35,7 +35,7 @@ In the pristine design, combinations already prepared in an earlier round
 combinations — so ID order reflects preparation order, not just the
 factorial order.
 
-**`SAMPLE_CODE`** format: `POLYMER_[SIZE][MASS]_REPLICATE`, built from the experimental factors below. Colored mixtures use the prefix `MIX` (stored as `ALL` in the `POLYMER` column).
+**`SAMPLE_CODE`** format: `[POLYMER]_[SIZE][MASS]_[REPLICATE]`, built from the experimental factors below. Colored mixtures use the prefix `MIX` (stored as `ALL` in the `POLYMER` column).
 
 ```r
 # pristine design
