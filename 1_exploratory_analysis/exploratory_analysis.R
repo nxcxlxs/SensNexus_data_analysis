@@ -6,6 +6,7 @@ require(ggplot2)
 require(RColorBrewer)
 require(patchwork)
 require(effectsize)
+require(broom)
 require(resemble)
 require(purrr)
 require(tidyr)
@@ -362,21 +363,27 @@ p/(p1+p2+p3)/p4 +
 
 
 # BEYOND VISUAL INSPECTION...
-## check MASS_mg correlation with PC1 and PC2
-cor.test(pcspec$x[ ,1], pristine$MASS_mg)
-cor.test(pcspec$x[ ,2], pristine$MASS_mg)
+dat = data.frame(pcspec$x[, 1:2],
+                 POLYMER = factor(pristine$POLYMER),
+                 SIZE    = factor(pristine$SIZE_CODE),
+                 MASS    = factor(pristine$MASS_mg))   # six design levels
 
-## AOV for POLYMER with PC1 and PC2
-summary(aov(pcspec$x[ ,1] ~ pristine$POLYMER))
-summary(aov(pcspec$x[ ,2] ~ pristine$POLYMER))
+table(dat$POLYMER, dat$SIZE, dat$MASS)                 # confirm balance
 
-## effect size in PC1
-eta_squared(aov(pcspec$x[ ,1] ~ pristine$MASS_mg))
-eta_squared(aov(pcspec$x[ ,1] ~ pristine$POLYMER))
+## effect size
+### factorial ANOVA per PC (all main effects and interactions)
+for (pc in c("PC1", "PC2")) {
+  m = aov(as.formula(paste(pc, "~ POLYMER * SIZE * MASS")), data = dat)
+  cat("\n=====", pc, "=====\n")
+  print(eta_squared(m, partial = FALSE))   # share of total variance per term
+}
 
-## effect size in PC2
-eta_squared(aov(pcspec$x[ ,2] ~ pristine$MASS_mg))
-eta_squared(aov(pcspec$x[ ,2] ~ pristine$POLYMER))
+## tidy ANOVA table for PC1 & PC2
+anova_tab = do.call(rbind, lapply(c("PC1", "PC2"), function(pc) {
+  m = aov(as.formula(paste(pc, "~ POLYMER * SIZE * MASS")), data = dat)
+  cbind(PC = pc, tidy(m))
+}))
+anova_tab
 
 
 ################################################################################
