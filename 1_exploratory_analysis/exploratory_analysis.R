@@ -370,11 +370,11 @@ cor.test(pcspec$x[ ,2], pristine$MASS_mg)
 summary(aov(pcspec$x[ ,1] ~ pristine$POLYMER))
 summary(aov(pcspec$x[ ,2] ~ pristine$POLYMER))
 
-## size effect in PC1
+## effect size in PC1
 eta_squared(aov(pcspec$x[ ,1] ~ pristine$MASS_mg))
 eta_squared(aov(pcspec$x[ ,1] ~ pristine$POLYMER))
 
-## size effect in PC2
+## effect size in PC2
 eta_squared(aov(pcspec$x[ ,2] ~ pristine$MASS_mg))
 eta_squared(aov(pcspec$x[ ,2] ~ pristine$POLYMER))
 
