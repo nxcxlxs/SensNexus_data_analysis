@@ -83,11 +83,12 @@ ellipses. These are composed into a single tagged panel figure with
 
 ### Beyond visual inspection — statistical checks
 
-- **Correlation tests** (`cor.test`) between `MASS_mg` and PC1 / PC2.
-- **ANOVA** (`aov`) of PC1 and PC2 by `POLYMER`, to test whether polymer
-  identity explains score variation.
-- **Effect sizes** (`eta_squared`) for `MASS_mg` and `POLYMER` on both PC1
-  and PC2, to quantify how much variance each factor explains.
+A factorial design dataset is built from the first two principal component scores (PC1, PC2) and three experimental factors: `POLYMER`, `SIZE` (from `SIZE_CODE`), and `MASS` (from `MASS_mg`, treated as a categorical factor with six levels).
+
+- **Design balance check** (`table`) of `POLYMER × SIZE × MASS`, to confirm the design is balanced before running the ANOVA.
+- **Factorial ANOVA** (`aov`) of PC1 and PC2 on `POLYMER * SIZE * MASS`, including all main effects and interactions, to test whether each factor (or their combinations) explains score variation.
+- **Effect sizes** (`eta_squared`, with `partial = FALSE`) for every model term on both PC1 and PC2, to quantify the share of total variance explained by each factor and interaction.
+- **Tidy ANOVA table** (`tidy`) combining the results for PC1 and PC2 into a single data frame for easy reporting.
 
 ---
 
@@ -203,6 +204,7 @@ library(ggplot2)
 library(patchwork)
 library(factoextra)
 library(effectsize)
+library(broom)
 library(resemble)
 library(tripack)
 library(splancs)
