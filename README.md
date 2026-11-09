@@ -43,7 +43,7 @@ level as the numbered folders.
 | Resource                                           | Reference |
 |---|---|
 | Dataset archive (IEEE DataPort)  | https://dx.doi.org/10.21227/vh42-0d98 |
-| Data descriptor article (IEEE Data Descriptions)   | [DOI WILL BE INCLUDED AS SOON THE IEEE Data Descriptions ARTICLE IS PUBLISHED] |
+| Data descriptor article (IEEE Data Descriptions)   | https://doi.org/10.1109/IEEEDATA.2026.3752028 |
 | Main article (modeling and analysis)               | [DOI WILL BE INCLUDED AS SOON THE MAIN PAPER IS PUBLISHED] |
 
 The dataset archive is associated with the data descriptor article. The code in
@@ -57,7 +57,7 @@ If you use this code or data, please cite:
 
 - **Repository:** Ortiz, N. M. R. & ten Caten, A. (2026). *SensNexus_data_analysis* [Computer software]. GitHub. https://github.com/nxcxlxs/SensNexus_data_analysis
 - **Dataset:** Ortiz, N. M. R., Silva, M. S., Andrade, C. B., & ten Caten, A. (2026). *SensNexus Spectral Dataset (SensNexusDat)* [Data set]. IEEE Dataport. https://doi.org/10.21227/vh42-0d98
-- **Data descriptor:** [DATA DESCRIPTOR CITATION]
+- **Data descriptor:** N. M. R. Ortiz, M. S. Silva, C. B. Andrade and A. T. Caten, Descriptor: SensNexus Spectral Dataset (SensNexusDat)". IEEE Data Descriptions. 10.1109/IEEEDATA.2026.3752028
 - **Main article:** [MAIN PAPER CITATION]
 
 ---
