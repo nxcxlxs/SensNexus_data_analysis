@@ -57,7 +57,7 @@ If you use this code or data, please cite:
 
 - **Repository:** Ortiz, N. M. R. & ten Caten, A. (2026). *SensNexus_data_analysis* [Computer software]. GitHub. https://github.com/nxcxlxs/SensNexus_data_analysis
 - **Dataset:** Ortiz, N. M. R., Silva, M. S., Andrade, C. B., & ten Caten, A. (2026). *SensNexus Spectral Dataset (SensNexusDat)* [Data set]. IEEE Dataport. https://doi.org/10.21227/vh42-0d98
-- **Data descriptor:** N. M. R. Ortiz, M. S. Silva, C. B. Andrade and A. T. Caten, Descriptor: SensNexus Spectral Dataset (SensNexusDat)". IEEE Data Descriptions. 10.1109/IEEEDATA.2026.3752028
+- **Data descriptor:** Ortiz, N. M. R., Silva, M. S., Andrade, C. B., & ten Caten, A. (2026) Descriptor: SensNexus Spectral Dataset (SensNexusDat)". IEEE Data Descriptions. 10.1109/IEEEDATA.2026.3752028
 - **Main article:** [MAIN PAPER CITATION]
 
 ---
