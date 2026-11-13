@@ -1,6 +1,9 @@
 <p align="center"><img src="https://github.com/user-attachments/assets/4912b73a-ec1a-4cc5-9268-3ca425f6ff0d" width="400"></p>
 
 # Microplastic Mass Prediction in Soil from Vis-NIR-SWIR Spectra
+[![Zenodo DOI](https://github.com/user-attachments/assets/782972af-c0e2-468f-9cff-4cc01ed2d5ca)](https://doi.org/10.5281/zenodo.24198288)
+[![DataPort DOI](https://github.com/user-attachments/assets/2d9c0ed8-2030-4508-a12f-e9ee84815395)](https://dx.doi.org/10.21227/vh42-0d98)
+[![Descriptor DOI](https://github.com/user-attachments/assets/bfa1dfa6-b81b-49f0-b92b-66ed63cd8837)](https://doi.org/10.1109/IEEEDATA.2026.3752028)
 
 ## Overview
 
